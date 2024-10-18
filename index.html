@@ -413,27 +413,34 @@ var render_gexf = (gexf) => {
     }
   }
 
-  for (let [top_level, li] of keyElems) {
-    li.addEventListener('mouseenter', (event) => {
-      setHoveredNode(undefined);
-      state.hoveredPath = top_level;
-      let nfiles = 0;
-      let ndecls = 0;
-      for (let [n, node_data] of graph.nodeEntries()) {
-        if (node_data.path[0] == top_level) {
-          nfiles += 1;
-          ndecls += node_data.decl_count;
-        }
-      }
-      setStatus("Highlighting " + nfiles + " files consisting of "+ndecls+" declarations");
-      renderer.refresh();
-    });
-    li.addEventListener('mouseleave', (event) => {
-      state.hoveredPath = undefined;
-      setHoveredNode(default_hover ? state.defaultNode : undefined);
-      setStatus(null);
-      renderer.refresh();
-    });
+li.addEventListener('mouseenter', (event) => {
+  setHoveredNode(undefined);
+  state.hoveredPath = top_level;
+  
+  // Hide the nodes with the hovered path
+  for (let [n, node_data] of graph.nodeEntries()) {
+    if (node_data.path[0] === top_level) {
+      graph.setNodeAttribute(n, 'hidden', true);  // Hides the node
+    } else {
+      graph.setNodeAttribute(n, 'hidden', false); // Ensures other nodes are shown
+    }
+  }
+  
+  renderer.refresh();
+});
+
+li.addEventListener('mouseleave', (event) => {
+  state.hoveredPath = undefined;
+  setHoveredNode(default_hover ? state.defaultNode : undefined);
+  
+  // Unhide all nodes when mouse leaves
+  for (let [n, node_data] of graph.nodeEntries()) {
+    graph.setNodeAttribute(n, 'hidden', false);
+  }
+  
+  renderer.refresh();
+});
+
   }
 
   // Bind graph interactions:
