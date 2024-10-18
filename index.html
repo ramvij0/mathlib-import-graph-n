@@ -414,32 +414,33 @@ var render_gexf = (gexf) => {
   }
 
 li.addEventListener('mouseenter', (event) => {
-  setHoveredNode(undefined);
-  state.hoveredPath = top_level;
-  
-  // Hide the nodes with the hovered path
+  setHoveredNode(undefined);  // Reset hovered node
+  state.hoveredPath = top_level;  // Set the path to the hovered one
+
+  // Loop through the nodes and hide those matching the hovered path
   for (let [n, node_data] of graph.nodeEntries()) {
     if (node_data.path[0] === top_level) {
-      graph.setNodeAttribute(n, 'hidden', true);  // Hides the node
+      graph.setNodeAttribute(n, 'hidden', true);  // Hide the node
     } else {
-      graph.setNodeAttribute(n, 'hidden', false); // Ensures other nodes are shown
+      graph.setNodeAttribute(n, 'hidden', false);  // Keep other nodes visible
     }
   }
   
-  renderer.refresh();
+  renderer.refresh();  // Refresh the graph to reflect changes
 });
 
 li.addEventListener('mouseleave', (event) => {
-  state.hoveredPath = undefined;
-  setHoveredNode(default_hover ? state.defaultNode : undefined);
+  state.hoveredPath = undefined;  // Clear the hovered path
+  setHoveredNode(default_hover ? state.defaultNode : undefined);  // Restore the default state
   
-  // Unhide all nodes when mouse leaves
+  // Unhide all nodes when hover ends
   for (let [n, node_data] of graph.nodeEntries()) {
-    graph.setNodeAttribute(n, 'hidden', false);
+    graph.setNodeAttribute(n, 'hidden', false);  // Make sure all nodes are visible again
   }
-  
-  renderer.refresh();
+
+  renderer.refresh();  // Refresh the graph to revert changes
 });
+
 
   }
 
