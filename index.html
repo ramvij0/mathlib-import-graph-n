@@ -373,13 +373,13 @@ var render_gexf = (gexf) => {
 
       if (state.hoveredNode) {
         if (state.hoveredDescendants.has(graph.source(edge))) {
-          res.size = 1.5;
+          res.color = res.very_dim_color;
         }
         else if (state.hoveredNode == graph.target(edge)) {
           res.color = graph.getNodeAttributes(state.hoveredNode).dark_color;
         }
         else {
-          res.hidden = true;
+          res.hidden = false;
         }
       }
       else if (state.hoveredPath) {
