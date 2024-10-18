@@ -341,7 +341,6 @@ var render_gexf = (gexf) => {
           graph.dropNode(node);
         }
         if (state.hoveredDescendants.has(node)) {
-          res.zIndex = 2;
         }
         else if (state.hoveredAncestors.has(node)) {
           graph.dropNode(node);
