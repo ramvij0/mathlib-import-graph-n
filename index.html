@@ -325,7 +325,7 @@ var render_gexf = (gexf) => {
 
   window.graph = graph;
 
-  window.renderer = new Sigma.Sigma(graph, container, {
+window.renderer = new Sigma.Sigma(graph, container, {
   defaultEdgeType: "arrow",
   defaultEdgeColor: "#c0c0c0",
   minArrowSize: 30,
@@ -339,24 +339,24 @@ var render_gexf = (gexf) => {
       }
       if (state.hoveredDescendants.has(node)) {
         res.zIndex = 2;
-      }
-      else if (state.hoveredAncestors.has(node)) {
+      } else if (state.hoveredAncestors.has(node)) {
         res.color = res.dim_color;
-      }
-      else {
+      } else {
         res.label = undefined;
         res.color = res.very_dim_color;
       }
-    }
-    else if (state.hoveredPath) {
-      if (data.path[0] == state.hoveredPath) {
-        res.hidden = true;  // Hides the hovered nodes
+    } else if (state.hoveredPath) {
+      if (data.path[0] === state.hoveredPath) {
+        // Hide nodes by setting size to 0 and making them fully transparent
+        res.size = 0;
+        res.label = undefined;  // Remove label
+        res.color = 'rgba(0, 0, 0, 0)';  // Set color to transparent
+      } else {
+        // Ensure other nodes are visible
+        res.size = data.size || 2;
+        res.color = data.color;  // Keep original color
       }
-      else {
-        res.hidden = false;  // Ensures other nodes remain visible
-      }
-    }
-    else if (state.defaultNode) {
+    } else if (state.defaultNode) {
       if (state.defaultNode === node) {
         res.highlighted = true;
       }
@@ -370,24 +370,19 @@ var render_gexf = (gexf) => {
     if (state.hoveredNode) {
       if (state.hoveredDescendants.has(graph.source(edge))) {
         res.size = 1.5;
-      }
-      else if (state.hoveredNode == graph.target(edge)) {
+      } else if (state.hoveredNode == graph.target(edge)) {
         res.color = graph.getNodeAttributes(state.hoveredNode).dark_color;
-      }
-      else {
+      } else {
         res.hidden = true;
       }
-    }
-    else if (state.hoveredPath) {
+    } else if (state.hoveredPath) {
       let src = graph.getNodeAttributes(graph.source(edge));
       let target = graph.getNodeAttributes(graph.target(edge));
       if (src.path[0] == state.hoveredPath && target.path[0] == state.hoveredPath) {
         res.color = get_color({ path: [state.hoveredPath] }, 1, 0.4);
-      }
-      else if (src.path[0] == state.hoveredPath) {
+      } else if (src.path[0] == state.hoveredPath) {
         res.color = "#808080";
-      }
-      else {
+      } else {
         res.color = "#E0E0E0";
       }
     }
@@ -410,6 +405,8 @@ for (let [top_level, li] of keyElems) {
 
     renderer.refresh();
   });
+}
+
 }
 
 
