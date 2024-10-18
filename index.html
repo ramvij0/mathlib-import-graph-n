@@ -338,7 +338,7 @@ var render_gexf = (gexf) => {
 
       if (state.hoveredNode) {
         if (state.hoveredNode === node) {
-          res.color = res.very_dim_color;
+          res.hidden = true;
         }
         if (state.hoveredDescendants.has(node)) {
           res.zIndex = 2;
