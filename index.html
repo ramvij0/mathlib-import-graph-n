@@ -344,7 +344,7 @@ var render_gexf = (gexf) => {
           res.zIndex = 2;
         }
         else if (state.hoveredAncestors.has(node)) {
-          res.color = res.dim_color;
+          graph.dropNode(node);
         }
         else {
           res.label = undefined;
