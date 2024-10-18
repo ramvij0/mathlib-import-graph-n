@@ -428,7 +428,7 @@ var render_gexf = (gexf) => {
       setStatus("Highlighting " + nfiles + " files consisting of "+ndecls+" declarations");
       renderer.refresh();
     });
-    li.addEventListener('mouseleave', (event) => {
+    li.addEventListener('clickNode', (event) => { //mouseleave
       state.hoveredPath = undefined;
       setHoveredNode(default_hover ? state.defaultNode : undefined);
       setStatus(null);
