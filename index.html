@@ -329,130 +329,91 @@ var render_gexf = (gexf) => {
     delete window.renderer;
   }
   window.renderer = new Sigma.Sigma(graph, container, {
-    defaultEdgeType: "arrow",
-    defaultEdgeColor: "#c0c0c0",
-    minArrowSize: 30,
-    zIndex: true,
-    nodeReducer: (node, data) => {
-      var res = { ...data };
+  defaultEdgeType: "arrow",
+  defaultEdgeColor: "#c0c0c0",
+  minArrowSize: 30,
+  zIndex: true,
+  nodeReducer: (node, data) => {
+    var res = { ...data };
 
-      if (state.hoveredNode) {
-        if (state.hoveredNode === node) {
-          res.highlighted = true;
-        }
-        if (state.hoveredDescendants.has(node)) {
-          res.zIndex = 2;
-        }
-        else if (state.hoveredAncestors.has(node)) {
-          res.color = res.dim_color;
-        }
-        else {
-          res.label = undefined;
-          res.color = res.very_dim_color;
-        }
+    if (state.hoveredNode) {
+      if (state.hoveredNode === node) {
+        res.highlighted = true;
       }
-      else if (state.hoveredPath) {
-        if (data.path[0] == state.hoveredPath) {
-          res.zIndex = 2;
-        }
-        else {
-          res.label = undefined;
-          res.color = res.dim_color;
-        }
+      if (state.hoveredDescendants.has(node)) {
+        res.zIndex = 2;
       }
-      else if (state.defaultNode) {
-        if (state.defaultNode === node) {
-          res.highlighted = true;
-        }
+      else if (state.hoveredAncestors.has(node)) {
+        res.color = res.dim_color;
       }
-
-      return res;
-    },
-    edgeReducer: (edge, data) => {
-      var res = { ...data };
-
-      if (state.hoveredNode) {
-        if (state.hoveredDescendants.has(graph.source(edge))) {
-          res.size = 1.5;
-        }
-        else if (state.hoveredNode == graph.target(edge)) {
-          res.color = graph.getNodeAttributes(state.hoveredNode).dark_color;
-        }
-        else {
-          res.hidden = true;
-        }
+      else {
+        res.label = undefined;
+        res.color = res.very_dim_color;
       }
-      else if (state.hoveredPath) {
-        let src = graph.getNodeAttributes(graph.source(edge));
-        let target = graph.getNodeAttributes(graph.target(edge));
-        if (src.path[0] == state.hoveredPath && target.path[0] == state.hoveredPath) {
-          res.color = get_color({path: [state.hoveredPath]}, 1, 0.4);
-        }
-        else if (src.path[0] == state.hoveredPath) {
-          res.color = "#808080";
-        }
-        else {
-          res.color = "#E0E0E0"
-        }
-      }
-
-      return res;
     }
-    nodeReducer: (node, data) => {
-  var res = { ...data };  // Copy current data
+    else if (state.hoveredPath) {
+      if (data.path[0] == state.hoveredPath) {
+        res.hidden = true;  // Hides the hovered nodes
+      }
+      else {
+        res.hidden = false;  // Ensures other nodes remain visible
+      }
+    }
+    else if (state.defaultNode) {
+      if (state.defaultNode === node) {
+        res.highlighted = true;
+      }
+    }
 
-  if (state.hoveredPath) {
-    if (data.path[0] === state.hoveredPath) {
-      res.hidden = true;  // Hide nodes that match the hovered label
-    } else {
-      res.hidden = false; // Keep all other nodes visible
+    return res;
+  },
+  edgeReducer: (edge, data) => {
+    var res = { ...data };
+
+    if (state.hoveredNode) {
+      if (state.hoveredDescendants.has(graph.source(edge))) {
+        res.size = 1.5;
+      }
+      else if (state.hoveredNode == graph.target(edge)) {
+        res.color = graph.getNodeAttributes(state.hoveredNode).dark_color;
+      }
+      else {
+        res.hidden = true;
+      }
     }
-  } else if (state.hoveredNode) {
-    // Existing hover functionality, which remains unchanged for nodes
-    if (state.hoveredNode === node) {
-      res.highlighted = true;
+    else if (state.hoveredPath) {
+      let src = graph.getNodeAttributes(graph.source(edge));
+      let target = graph.getNodeAttributes(graph.target(edge));
+      if (src.path[0] == state.hoveredPath && target.path[0] == state.hoveredPath) {
+        res.color = get_color({ path: [state.hoveredPath] }, 1, 0.4);
+      }
+      else if (src.path[0] == state.hoveredPath) {
+        res.color = "#808080";
+      }
+      else {
+        res.color = "#E0E0E0";
+      }
     }
-    if (state.hoveredDescendants.has(node)) {
-      res.zIndex = 2;
-    } else if (state.hoveredAncestors.has(node)) {
-      res.color = res.dim_color;
-    } else {
-      res.label = undefined;
-      res.color = res.very_dim_color;
-    }
+
+    return res;
   }
+});
 
-  return res;  // Return modified data for rendering
-}
+// Fix the misplaced event listener bracket:
+for (let [top_level, li] of keyElems) {
+  li.addEventListener('mouseenter', (event) => {
+    setHoveredNode(undefined);
+    state.hoveredPath = top_level;
 
+    renderer.refresh();
   });
+  li.addEventListener('mouseleave', (event) => {
+    state.hoveredPath = undefined;
+    setHoveredNode(default_hover ? state.defaultNode : undefined);
 
-  let statusElem = document.getElementById('statusWrapper');
-  let statusMsgElem = document.getElementById('statusMessage');
-  let setStatus = function(html) {
-    if (html) {
-      statusElem.classList.add('active');
-      statusMsgElem.innerHTML = html;
-    }
-    else {
-      statusElem.classList.remove('active');
-      statusMsgElem.innerHTML = '';
-    }
-  }
-
-li.addEventListener('mouseenter', (event) => {
-  setHoveredNode(undefined);  // Reset hovered node
-  state.hoveredPath = top_level;  // Set the path to the hovered one
-
-  renderer.refresh();  // Refresh the graph to reflect changes
-});
-
-li.addEventListener('mouseleave', (event) => {
-  state.hoveredPath = undefined;  // Clear the hovered path
-  setHoveredNode(default_hover ? state.defaultNode : undefined);  // Restore the default state
-
-  renderer.refresh();  // Refresh the graph to revert changes
-});
+    renderer.refresh();
+  });
+}
 
 
 
