@@ -220,13 +220,22 @@ var render_gexf = (gexf) => {
     return 'rgb(' + [r, g, b].join(',') + ')'
   };
 
-  // build the key
-  while(key.firstChild) key.removeChild(key.lastChild);
+  // Intialize key and keyElems
+  while(key.firstChild) key.removeChild(key.lastChild); //clear existing key
   var keyElems = new Map();
-  var selectedAreas = new Set(Array.from(tree.keys()));  // Initialize with all areas
+
+  // Add button to select/deselect all areas
   const toggleButton = document.getElementById('toggleAll');
   toggleButton.textContent = 'Deselect All';  // Initial button text
   
+  // All areas are selected by default
+  var areaStates = {};
+  console.log("Tree keys:", Array.from(tree.keys()));  // Log the keys
+  for (let area of tree.keys()) {
+    areaStates[area] = true;
+  }
+
+  // Build key from top-level entries in tree
   for (let top_level of Array.from(tree.keys()).sort()) {
     var li = document.createElement('li');
     var sp = document.createElement('span');
@@ -240,19 +249,26 @@ var render_gexf = (gexf) => {
     
     // Rest of the click handler remains the same
     li.addEventListener('click', (event) => {
-      if (selectedAreas.has(top_level)) {
-        // Deselect this area only
-        selectedAreas.delete(top_level);
-        li.style.fontWeight = 'normal';
-      } else {
-        // Select this area
-        selectedAreas.add(top_level);
-        li.style.fontWeight = 'bold';
-      }
+      console.log('Before click:', {
+        area: top_level,
+        state: areaStates[top_level],
+        fontWeight: li.style.fontWeight
+      });
       
-      // Update graph visibility based on selected areas
+      // Toggle this area
+      areaStates[top_level] = !areaStates[top_level];
+      const listItem = keyElems.get(top_level);  // Get the li element from our Map
+      listItem.style.fontWeight = areaStates[top_level] ? 'bold' : 'normal';
+      
+      console.log('After click:', {
+        area: top_level,
+        state: areaStates[top_level],
+        fontWeight: li.style.fontWeight
+      });
+      
+      // Update graph visibility
       graph.forEachNode((node, attrs) => {
-        const isVisible = selectedAreas.has(attrs.path[0]);
+        const isVisible = areaStates[attrs.path[0]];
         graph.setNodeAttribute(node, 'hidden', !isVisible);
       });
       
@@ -262,13 +278,9 @@ var render_gexf = (gexf) => {
         graph.setEdgeAttribute(edge, 'hidden', !(sourceVisible && targetVisible));
       });
 
-      // Only update button text if ALL areas are deselected
-      const allAreas = Array.from(tree.keys());
-      if (selectedAreas.size === 0) {
-        toggleButton.textContent = 'Select All';
-      } else {
-        toggleButton.textContent = 'Deselect All';
-      }
+      // Update button text based on whether all areas are selected
+      // const allSelected = Object.values(areaStates).every(state => state);
+      //toggleButton.textContent = allSelected ? 'Deselect All' : 'Select All';
       
       renderer.refresh();
     });
@@ -523,45 +535,30 @@ var render_gexf = (gexf) => {
 
   // Add toggle button handler
   toggleButton.addEventListener('click', () => {
-    const allAreas = Array.from(tree.keys());
-    if (selectedAreas.size === allAreas.length) {
-      // Deselect all
-      selectedAreas.clear();
-      keyElems.forEach((li, _) => {
-        li.style.fontWeight = 'normal';  // Remove bold
-      });
-      toggleButton.textContent = 'Select All';
-      
-      // Hide all nodes
-      graph.forEachNode((node, attrs) => {
-        graph.setNodeAttribute(node, 'hidden', true);
-      });
-      
-      // Hide all edges
-      graph.forEachEdge((edge) => {
-        graph.setEdgeAttribute(edge, 'hidden', true);
-      });
-      
-    } else {
-      // Select all
-      allAreas.forEach(area => selectedAreas.add(area));
-      keyElems.forEach((li, _) => {
-        li.style.fontWeight = 'bold';
-      });
-      toggleButton.textContent = 'Deselect All';
-      
-      // Show all nodes
-      graph.forEachNode((node, attrs) => {
-        graph.setNodeAttribute(node, 'hidden', false);
-      });
-      
-      // Show all edges
-      graph.forEachEdge((edge) => {
-        graph.setEdgeAttribute(edge, 'hidden', false);
-      });
+    const allSelected = Object.values(areaStates).every(state => state);
+    
+    // Toggle all areas
+    for (let area in areaStates) {
+      areaStates[area] = !allSelected;
+      keyElems.get(area).style.fontWeight = allSelected ? 'normal' : 'bold';
     }
     
-    renderer.refresh();  // Update the display
+    // Update button text
+    toggleButton.textContent = allSelected ? 'Select All' : 'Deselect All';
+    
+    // Update graph visibility
+    graph.forEachNode((node, attrs) => {
+      const isVisible = areaStates[attrs.path[0]];
+      graph.setNodeAttribute(node, 'hidden', !isVisible);
+    });
+    
+    graph.forEachEdge((edge, attrs, source, target) => {
+      const sourceVisible = !graph.getNodeAttribute(source, 'hidden');
+      const targetVisible = !graph.getNodeAttribute(target, 'hidden');
+      graph.setEdgeAttribute(edge, 'hidden', !(sourceVisible && targetVisible));
+    });
+    
+    renderer.refresh();
   });
 
   setHoveredNode(default_hover ? state.defaultNode : undefined);
