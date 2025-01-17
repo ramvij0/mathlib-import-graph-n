@@ -370,7 +370,7 @@ var render_gexf = (gexf) => {
 
   // run the optimizer without worker
   graphologyLibrary.layoutForceAtlas2.assign(graph, {
-    iterations: 50,
+    iterations: 10, // how many intereations at the start before pausing
     settings: force_atlas_settings,
   });
 
@@ -382,11 +382,11 @@ var render_gexf = (gexf) => {
     layoutInterval = setInterval(() => {
       console.log("Running layout iteration");
       graphologyLibrary.layoutForceAtlas2.assign(graph, {
-        iterations: 10,
+        iterations: 1,
         settings: force_atlas_settings,
       });
       renderer.refresh();
-    }, 100);
+    }, 50);
   }
 
   function stopLayout() {
