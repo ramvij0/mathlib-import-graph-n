@@ -109,6 +109,9 @@
 var params = new URLSearchParams(window.location.search);
 var docs_url = params.get("docs_url") || "https://leanprover-community.github.io/mathlib_docs/";
 
+// Configuration
+const HIDDEN_AREAS = ['core', 'init'];  // Areas to always hide
+
 // From stackoverflow
 /**
  * Converts an HSL color value to RGB. Conversion formula
@@ -153,12 +156,15 @@ var common_prefix = function(a, b) {
   return i;
 }
 
+// Get DOM elements
 let container = document.getElementById('sigma-example');
 let key = document.getElementById('key');
 let pause = document.getElementById('pause');
+const toggleButton = document.getElementById('toggleAll');
 
 var render_gexf = (gexf) => {
   let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
+  
   let rev_graph = graphologyLibrary.operators.reverse(graph);
 
   // interaction state
@@ -177,7 +183,7 @@ var render_gexf = (gexf) => {
     node_data.path = path_str.split('.');
   }
 
-  // represent the directory tree as a nested map
+  // Build directory tree
   var tree = new Map();
   for (let [node, node_data] of graph.nodeEntries()) {
     var at = tree;
@@ -191,6 +197,16 @@ var render_gexf = (gexf) => {
     }
   }
 
+  // Initialize area states
+  var areaSelected = {};
+  for (let area of tree.keys()) {
+    areaSelected[area] = true;
+  }
+
+  // Build key list 
+  while(key.firstChild) key.removeChild(key.lastChild);
+  var keyElems = new Map();
+  
   // return [f, depth] where f is in [0, 1) and corresponds to some measure
   // of order within the heirarchy.
   var get_frac = function (path, max_depth=Infinity) {
@@ -220,21 +236,6 @@ var render_gexf = (gexf) => {
     return 'rgb(' + [r, g, b].join(',') + ')'
   };
 
-  // Intialize key and keyElems
-  while(key.firstChild) key.removeChild(key.lastChild); //clear existing key
-  var keyElems = new Map();
-
-  // Add button to select/deselect all areas
-  const toggleButton = document.getElementById('toggleAll');
-  toggleButton.textContent = 'Deselect All';  // Initial button text
-  
-  // All areas are selected by default
-  var areaStates = {};
-  console.log("Tree keys:", Array.from(tree.keys()));  // Log the keys
-  for (let area of tree.keys()) {
-    areaStates[area] = true;
-  }
-
   // Build key from top-level entries in tree
   for (let top_level of Array.from(tree.keys()).sort()) {
     var li = document.createElement('li');
@@ -251,24 +252,24 @@ var render_gexf = (gexf) => {
     li.addEventListener('click', (event) => {
       console.log('Before click:', {
         area: top_level,
-        state: areaStates[top_level],
+        state: areaSelected[top_level],
         fontWeight: li.style.fontWeight
       });
       
       // Toggle this area
-      areaStates[top_level] = !areaStates[top_level];
+      areaSelected[top_level] = !areaSelected[top_level];
       const listItem = keyElems.get(top_level);  // Get the li element from our Map
-      listItem.style.fontWeight = areaStates[top_level] ? 'bold' : 'normal';
+      listItem.style.fontWeight = areaSelected[top_level] ? 'bold' : 'normal';
       
       console.log('After click:', {
         area: top_level,
-        state: areaStates[top_level],
+        state: areaSelected[top_level],
         fontWeight: li.style.fontWeight
       });
       
       // Update graph visibility
       graph.forEachNode((node, attrs) => {
-        const isVisible = areaStates[attrs.path[0]];
+        const isVisible = areaSelected[attrs.path[0]];
         graph.setNodeAttribute(node, 'hidden', !isVisible);
       });
       
@@ -279,8 +280,8 @@ var render_gexf = (gexf) => {
       });
 
       // Update button text based on whether all areas are selected
-      // const allSelected = Object.values(areaStates).every(state => state);
-      //toggleButton.textContent = allSelected ? 'Deselect All' : 'Select All';
+      // const allSelected = Object.values(areaSelected).every(state => state);
+      // toggleButton.textContent = allSelected ? 'Deselect All' : 'Select All';
       
       renderer.refresh();
     });
@@ -535,11 +536,11 @@ var render_gexf = (gexf) => {
 
   // Add toggle button handler
   toggleButton.addEventListener('click', () => {
-    const allSelected = Object.values(areaStates).every(state => state);
+    const allSelected = Object.values(areaSelected).every(state => state);
     
     // Toggle all areas
-    for (let area in areaStates) {
-      areaStates[area] = !allSelected;
+    for (let area in areaSelected) {
+      areaSelected[area] = !allSelected;
       keyElems.get(area).style.fontWeight = allSelected ? 'normal' : 'bold';
     }
     
@@ -548,7 +549,7 @@ var render_gexf = (gexf) => {
     
     // Update graph visibility
     graph.forEachNode((node, attrs) => {
-      const isVisible = areaStates[attrs.path[0]];
+      const isVisible = areaSelected[attrs.path[0]];
       graph.setNodeAttribute(node, 'hidden', !isVisible);
     });
     
