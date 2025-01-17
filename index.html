@@ -259,7 +259,12 @@ var render_gexf = (gexf) => {
     // Set initial bold style since all are selected
     li.style.fontWeight = 'bold';
     
-    // Rest of the click handler remains the same
+    key.appendChild(li);
+    keyElems.set(top_level, li);
+  }
+
+  // Then add click handlers to all list items
+  keyElems.forEach((li, top_level) => {
     li.addEventListener('click', (event) => {
       console.log('Before click:', {
         area: top_level,
@@ -269,7 +274,7 @@ var render_gexf = (gexf) => {
       
       // Toggle this area
       areaSelected[top_level] = !areaSelected[top_level];
-      const listItem = keyElems.get(top_level);  // Get the li element from our Map
+      const listItem = keyElems.get(top_level);
       listItem.style.fontWeight = areaSelected[top_level] ? 'bold' : 'normal';
       
       console.log('After click:', {
@@ -289,17 +294,10 @@ var render_gexf = (gexf) => {
         const targetVisible = !graph.getNodeAttribute(target, 'hidden');
         graph.setEdgeAttribute(edge, 'hidden', !(sourceVisible && targetVisible));
       });
-
-      // Update button text based on whether all areas are selected
-      // const allSelected = Object.values(areaSelected).every(state => state);
-      // toggleButton.textContent = allSelected ? 'Deselect All' : 'Select All';
       
       renderer.refresh();
     });
-
-    key.appendChild(li);
-    keyElems.set(top_level, li);
-  }
+  });
 
   // remove the node that's connected to everything!
   graph.dropNode('core:init.default');
