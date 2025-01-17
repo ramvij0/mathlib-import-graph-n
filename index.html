@@ -9,7 +9,6 @@
   <script src="vendor/graphology.min.js"></script>
   <script src="vendor/graphology-library.min.js"></script>
 
-  <link rel="stylesheet" href="style.css" />
   <style>
     html, body {
       height: 100%; width: 100%;
@@ -97,6 +96,7 @@
     <label><input type="checkbox" id="pause" checked/> Pause graph layout</label>
   </div>
   <div class="key-wrapper">
+    <button id="toggleAll">Select All</button>
     <ul id="key"></ul>
     <div class="status" id="statusWrapper">
       <p class="placeholder">Hover over a node to show only the files it imports. Hover over a directory name to highlight only the files in that directory</p>
@@ -223,8 +223,10 @@ var render_gexf = (gexf) => {
   // build the key
   while(key.firstChild) key.removeChild(key.lastChild);
   var keyElems = new Map();
-  var selectedAreas = new Set();  // Track selected areas
-
+  var selectedAreas = new Set(Array.from(tree.keys()));  // Initialize with all areas
+  const toggleButton = document.getElementById('toggleAll');
+  toggleButton.textContent = 'Deselect All';  // Initial button text
+  
   for (let top_level of Array.from(tree.keys()).sort()) {
     var li = document.createElement('li');
     var sp = document.createElement('span');
@@ -233,24 +235,24 @@ var render_gexf = (gexf) => {
     li.appendChild(sp);
     li.appendChild(document.createTextNode(top_level));
     
-    // Add click handler
+    // Set initial bold style since all are selected
+    li.style.fontWeight = 'bold';
+    
+    // Rest of the click handler remains the same
     li.addEventListener('click', (event) => {
-      console.log('Clicked:', top_level);  // Debug log
       if (selectedAreas.has(top_level)) {
+        // Deselect this area only
         selectedAreas.delete(top_level);
         li.style.fontWeight = 'normal';
-        console.log('Deselected:', top_level);  // Debug log
       } else {
+        // Select this area
         selectedAreas.add(top_level);
         li.style.fontWeight = 'bold';
-        console.log('Selected:', top_level);  // Debug log
       }
       
-      console.log('Selected areas:', Array.from(selectedAreas));  // Debug log
-      
-      // set nodes to 'hidden' if they are not in the selected areas (!isVisible)
+      // Update graph visibility based on selected areas
       graph.forEachNode((node, attrs) => {
-        const isVisible = selectedAreas.size === 0 || selectedAreas.has(attrs.path[0]);
+        const isVisible = selectedAreas.has(attrs.path[0]);
         graph.setNodeAttribute(node, 'hidden', !isVisible);
       });
       
@@ -260,6 +262,14 @@ var render_gexf = (gexf) => {
         graph.setEdgeAttribute(edge, 'hidden', !(sourceVisible && targetVisible));
       });
 
+      // Only update button text if ALL areas are deselected
+      const allAreas = Array.from(tree.keys());
+      if (selectedAreas.size === 0) {
+        toggleButton.textContent = 'Select All';
+      } else {
+        toggleButton.textContent = 'Deselect All';
+      }
+      
       renderer.refresh();
     });
 
@@ -333,26 +343,33 @@ var render_gexf = (gexf) => {
     filterEdges: edge => !graph.getEdgeAttribute(edge, 'hidden')
   };
 
-  // run the optimizer a little
+  // run the optimizer without worker
   graphologyLibrary.layoutForceAtlas2.assign(graph, {
-    iterations: 10,
+    iterations: 50,
     settings: force_atlas_settings,
   });
 
-  // now send it to a background task
-  var worker = new graphologyLibrary.FA2Layout(graph, {
-    settings: force_atlas_settings,
-  });
-
+  // Check initial pause state
   if (!pause.checked) {
-    worker.start();
+    // Set up periodic layout updates without worker
+    setInterval(() => {
+      graphologyLibrary.layoutForceAtlas2.assign(graph, {
+        iterations: 10,
+        settings: force_atlas_settings,
+      });
+      renderer.refresh();
+    }, 100);  // Run every 100ms
   }
 
+  // Update pause checkbox handler
   pause.addEventListener('change', (event) => {
-    if (event.currentTarget.checked) {
-      worker.stop();
-    } else {
-      worker.start();
+    if (!event.currentTarget.checked) {
+      // Run layout directly instead of using worker
+      graphologyLibrary.layoutForceAtlas2.assign(graph, {
+        iterations: 10,
+        settings: force_atlas_settings,
+      });
+      renderer.refresh();
     }
   });
 
@@ -502,6 +519,49 @@ var render_gexf = (gexf) => {
   renderer.on("clickNode", ({ node }) => {
     let path = graph.getNodeAttribute(node, 'path');
     window.open(docs_url + path.join('/') + ".html");
+  });
+
+  // Add toggle button handler
+  toggleButton.addEventListener('click', () => {
+    const allAreas = Array.from(tree.keys());
+    if (selectedAreas.size === allAreas.length) {
+      // Deselect all
+      selectedAreas.clear();
+      keyElems.forEach((li, _) => {
+        li.style.fontWeight = 'normal';  // Remove bold
+      });
+      toggleButton.textContent = 'Select All';
+      
+      // Hide all nodes
+      graph.forEachNode((node, attrs) => {
+        graph.setNodeAttribute(node, 'hidden', true);
+      });
+      
+      // Hide all edges
+      graph.forEachEdge((edge) => {
+        graph.setEdgeAttribute(edge, 'hidden', true);
+      });
+      
+    } else {
+      // Select all
+      allAreas.forEach(area => selectedAreas.add(area));
+      keyElems.forEach((li, _) => {
+        li.style.fontWeight = 'bold';
+      });
+      toggleButton.textContent = 'Deselect All';
+      
+      // Show all nodes
+      graph.forEachNode((node, attrs) => {
+        graph.setNodeAttribute(node, 'hidden', false);
+      });
+      
+      // Show all edges
+      graph.forEachEdge((edge) => {
+        graph.setEdgeAttribute(edge, 'hidden', false);
+      });
+    }
+    
+    renderer.refresh();  // Update the display
   });
 
   setHoveredNode(default_hover ? state.defaultNode : undefined);
