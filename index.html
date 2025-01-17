@@ -527,6 +527,54 @@ var render_gexf = (gexf) => {
     });
   }
 
+  // Add state for frozen highlight and tracking
+  let isFrozen = false;
+  let frozenNode = null;
+  let currentHoveredNode = null;
+  let shiftPressed = false;  // New state to track shift key
+
+  // Track shift key state
+  document.addEventListener('keydown', (e) => {
+    console.log('Key pressed:', e.key);
+    if (e.key === 'Shift') {
+      shiftPressed = true;
+      if (currentHoveredNode) {
+        isFrozen = true;
+        frozenNode = currentHoveredNode;
+        console.log('Freezing node:', frozenNode, 'isFrozen now:', isFrozen);
+      }
+    }
+  });
+
+  document.addEventListener('keyup', (e) => {
+    if (e.key === 'Shift') {
+      shiftPressed = false;
+      console.log('Unfreezing. Was frozen:', isFrozen, 'frozenNode was:', frozenNode);
+      isFrozen = false;
+      frozenNode = null;
+      setHoveredNode(default_hover ? state.defaultNode : undefined);
+    }
+  });
+
+  // Update hover tracking
+  renderer.on("enterNode", ({ node }) => { 
+    currentHoveredNode = node;
+    console.log('Entering node:', node, 'shiftPressed:', shiftPressed, 'isFrozen:', isFrozen);
+    if (!isFrozen) {
+      setHoveredNode(node);
+    }
+  });
+  
+  renderer.on("leaveNode", () => { 
+    console.log('Leaving node. shiftPressed:', shiftPressed, 'isFrozen:', isFrozen, 'frozenNode:', frozenNode);
+    if (!isFrozen) {
+      currentHoveredNode = null;
+      setHoveredNode(default_hover ? state.defaultNode : undefined);
+    } else if (frozenNode) {
+      setHoveredNode(frozenNode);
+    }
+  });
+
   // Bind graph interactions:
   let setHoveredNode = function(node) {
     if (node) {
