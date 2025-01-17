@@ -110,7 +110,7 @@ var params = new URLSearchParams(window.location.search);
 var docs_url = params.get("docs_url") || "https://leanprover-community.github.io/mathlib_docs/";
 
 // Configuration
-const HIDDEN_AREAS = ['core', 'init'];  // Areas to always hide
+const HIDDEN_AREAS = ['core', 'init', 'girard', 'wiedijk_100_theorems', 'data', 'map_floor', 'system', 'tactic', 'testing', 'phillips', 'meta', 'deprecated', 'examples', 'cyclotomic_105', 'arithcc', 'char_p_zero_ne_char_zero', 'canonically_ordered_comm_semiring_two_mul','miu_language', 'mathlib-archive:examples', 'direct_sum_is_internal', 'imo', 'homogeneous_prime_not_prime', 'linear_order_with_pos_mul_pos_eq_zero', 'oxford_invariants', 'seminorm_lattice_not_distrib', 'zero_divisors_in_add_monoid_algebras'];  // Areas to always hide
 
 // From stackoverflow
 /**
@@ -183,7 +183,7 @@ var render_gexf = (gexf) => {
     node_data.path = path_str.split('.');
   }
 
-  // Build directory tree
+  // Build directory tree (including hidden areas)
   var tree = new Map();
   for (let [node, node_data] of graph.nodeEntries()) {
     var at = tree;
@@ -197,13 +197,22 @@ var render_gexf = (gexf) => {
     }
   }
 
-  // Initialize area states
+  // Log all areas in the tree
+  console.log("All areas in tree:", Array.from(tree.keys()).sort());
+  console.log("Hidden areas:", HIDDEN_AREAS);
+  console.log("Visible areas:", Array.from(tree.keys())
+    .filter(area => !HIDDEN_AREAS.includes(area))
+    .sort());
+
+  // Initialize area selection (excluding hidden areas)
   var areaSelected = {};
   for (let area of tree.keys()) {
-    areaSelected[area] = true;
+    if (!HIDDEN_AREAS.includes(area)) {
+      areaSelected[area] = true;
+    }
   }
 
-  // Build key list 
+  // Build key list (excluding hidden areas)
   while(key.firstChild) key.removeChild(key.lastChild);
   var keyElems = new Map();
   
@@ -238,6 +247,8 @@ var render_gexf = (gexf) => {
 
   // Build key from top-level entries in tree
   for (let top_level of Array.from(tree.keys()).sort()) {
+    if (HIDDEN_AREAS.includes(top_level)) continue;  // Skip hidden areas in key list
+    
     var li = document.createElement('li');
     var sp = document.createElement('span');
     sp.style.backgroundColor = get_color({path: [top_level]});
@@ -562,7 +573,26 @@ var render_gexf = (gexf) => {
     renderer.refresh();
   });
 
-  setHoveredNode(default_hover ? state.defaultNode : undefined);
+  // Hide nodes from hidden areas in the graph
+  graph.forEachNode((node, attrs) => {
+    if (attrs && attrs.path && HIDDEN_AREAS.includes(attrs.path[0])) {
+      graph.setNodeAttribute(node, 'hidden', true);
+    }
+  });
+
+  // Hide edges connected to hidden nodes
+  graph.forEachEdge((edge, attrs, source, target) => {
+    const sourcePath = graph.getNodeAttribute(source, 'path');
+    const targetPath = graph.getNodeAttribute(target, 'path');
+    
+    if (sourcePath && targetPath) {
+      const sourceHidden = HIDDEN_AREAS.includes(sourcePath[0]);
+      const targetHidden = HIDDEN_AREAS.includes(targetPath[0]);
+      if (sourceHidden || targetHidden) {
+        graph.setEdgeAttribute(edge, 'hidden', true);
+      }
+    }
+  });
 };
 
 fetch(docs_url + "import.gexf").then((res) => res.text()).then(render_gexf);
