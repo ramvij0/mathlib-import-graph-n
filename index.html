@@ -96,10 +96,12 @@
     <label><input type="checkbox" id="pause" checked/> Pause graph layout</label>
   </div>
   <div class="key-wrapper">
-    <button id="toggleAll">Select All</button>
+    <button id="toggleAll">Hide All Nodes</button>
     <ul id="key"></ul>
     <div class="status" id="statusWrapper">
-      <p class="placeholder">Hover over a node to show only the files it imports. Hover over a directory name to highlight only the files in that directory</p>
+      <p class="placeholder">Hover over a node to show only the files it imports. Hover over a directory name to highlight only the files in that directory.</p>
+      <p><b><font style="color:magenta">Click on a directory/area to hide/show all nodes in that directory/area.</font></b>
+      </p>
       <div class="message" id="statusMessage"></div>
     </div>
   </div>
@@ -561,6 +563,8 @@ var render_gexf = (gexf) => {
   });
 
   // Add toggle button handler
+  toggleButton.textContent = 'Hide All Nodes';  // Initial text
+  
   toggleButton.addEventListener('click', () => {
     const allSelected = Object.values(areaSelected).every(state => state);
     
@@ -571,7 +575,7 @@ var render_gexf = (gexf) => {
     }
     
     // Update button text
-    toggleButton.textContent = allSelected ? 'Select All' : 'Deselect All';
+    toggleButton.textContent = allSelected ? 'Show All Nodes' : 'Hide All Nodes';
     
     // Update graph visibility
     graph.forEachNode((node, attrs) => {
