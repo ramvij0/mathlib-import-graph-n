@@ -248,7 +248,7 @@ var render_gexf = (gexf) => {
       
       console.log('Selected areas:', Array.from(selectedAreas));  // Debug log
       
-      // Update graph visibility
+      // set nodes to 'hidden' if they are not in the selected areas (!isVisible)
       graph.forEachNode((node, attrs) => {
         const isVisible = selectedAreas.size === 0 || selectedAreas.has(attrs.path[0]);
         graph.setNodeAttribute(node, 'hidden', !isVisible);
@@ -330,6 +330,7 @@ var render_gexf = (gexf) => {
     scalingRatio: 10,
     slowDown: 10,
     edgeWeightInfluence: 1,
+    filterEdges: edge => !graph.getEdgeAttribute(edge, 'hidden')
   };
 
   // run the optimizer a little
