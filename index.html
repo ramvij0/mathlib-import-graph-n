@@ -275,7 +275,7 @@ var render_gexf = (gexf) => {
       console.log('After click:', {
         area: top_level,
         state: areaSelected[top_level],
-        fontWeight: li.style.fontWeight
+        fontWeight: listItem.style.fontWeight
       });
       
       // Update graph visibility
@@ -357,6 +357,7 @@ var render_gexf = (gexf) => {
     node_data.y = 0.1*r * Math.sin(theta * 2 * Math.PI);
   }
 
+  // Force Atlas 2 settings
   var force_atlas_settings = {
     barnesHutOptimize: false,
     strongGravityMode: false,
@@ -364,6 +365,8 @@ var render_gexf = (gexf) => {
     scalingRatio: 10,
     slowDown: 10,
     edgeWeightInfluence: 1,
+    // Add filters to exclude hidden nodes and edges
+    filterNodes: node => !graph.getNodeAttribute(node, 'hidden'),
     filterEdges: edge => !graph.getEdgeAttribute(edge, 'hidden')
   };
 
@@ -373,27 +376,41 @@ var render_gexf = (gexf) => {
     settings: force_atlas_settings,
   });
 
-  // Check initial pause state
-  if (!pause.checked) {
-    // Set up periodic layout updates without worker
-    setInterval(() => {
+  // Set up continuous layout function
+  let layoutInterval = null;
+  
+  function startLayout() {
+    console.log("Starting continuous layout");
+    layoutInterval = setInterval(() => {
+      console.log("Running layout iteration");
       graphologyLibrary.layoutForceAtlas2.assign(graph, {
         iterations: 10,
         settings: force_atlas_settings,
       });
       renderer.refresh();
-    }, 100);  // Run every 100ms
+    }, 100);
+  }
+
+  function stopLayout() {
+    console.log("Stopping layout");
+    if (layoutInterval) {
+      clearInterval(layoutInterval);
+      layoutInterval = null;
+    }
+  }
+
+  // Initial layout state
+  if (!pause.checked) {
+    startLayout();
   }
 
   // Update pause checkbox handler
   pause.addEventListener('change', (event) => {
-    if (!event.currentTarget.checked) {
-      // Run layout directly instead of using worker
-      graphologyLibrary.layoutForceAtlas2.assign(graph, {
-        iterations: 10,
-        settings: force_atlas_settings,
-      });
-      renderer.refresh();
+    console.log("Pause state changed:", event.currentTarget.checked);
+    if (event.currentTarget.checked) {
+      stopLayout();
+    } else {
+      startLayout();
     }
   });
 
