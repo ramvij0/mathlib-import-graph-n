@@ -531,47 +531,55 @@ var render_gexf = (gexf) => {
   let isFrozen = false;
   let frozenNode = null;
   let currentHoveredNode = null;
-  let shiftPressed = false;  // New state to track shift key
+  let frozenState = null;  // Store the full state when freezing
 
-  // Track shift key state
-  document.addEventListener('keydown', (e) => {
-    console.log('Key pressed:', e.key);
-    if (e.key === 'Shift') {
-      shiftPressed = true;
-      if (currentHoveredNode) {
-        isFrozen = true;
-        frozenNode = currentHoveredNode;
-        console.log('Freezing node:', frozenNode, 'isFrozen now:', isFrozen);
-      }
+  renderer.on("enterNode", ({ node }) => { 
+    console.log('ENTER: Before any action - isFrozen:', isFrozen, 'frozenNode:', frozenNode);
+    currentHoveredNode = node;
+    console.log('Current node:', node);
+    // Check if shift is currently pressed
+    if (event.shiftKey && !isFrozen) {
+      isFrozen = true;
+      frozenNode = node;
+      // Store the full state
+      frozenState = {
+        hoveredNode: state.hoveredNode,
+        hoveredDescendants: new Set(state.hoveredDescendants),
+        hoveredAncestors: new Set(state.hoveredAncestors)
+      };
+      console.log('Freezing on node:', node);
+      setHoveredNode(node);
+    } else if (!isFrozen) {
+      setHoveredNode(node);
+    } else {
+      console.log('Node entered while frozen - doing nothing');
+      event.preventSigmaDefault();
+    }
+    console.log('ENTER: After actions - isFrozen:', isFrozen, 'frozenNode:', frozenNode);
+  });
+  
+  renderer.on("leaveNode", (event) => { 
+    console.log('Leave node - BEFORE action. isFrozen:', isFrozen, 'frozenNode:', frozenNode);
+    
+    if (isFrozen) {
+      // When frozen: maintain the hover state on frozenNode
+      state.hoveredNode = frozenNode;
+      event.preventSigmaDefault();
+    } else {
+      // When not frozen: let setHoveredNode handle all state
+      currentHoveredNode = null;
+      setHoveredNode(default_hover ? state.defaultNode : undefined);
+      console.log('Leave node - AFTER action. isFrozen:', isFrozen, 'frozenNode:', frozenNode);
     }
   });
 
+  // Clear frozen state when shift is released
   document.addEventListener('keyup', (e) => {
     if (e.key === 'Shift') {
-      shiftPressed = false;
-      console.log('Unfreezing. Was frozen:', isFrozen, 'frozenNode was:', frozenNode);
+      console.log('Shift released - clearing frozen state. Was:', isFrozen, frozenNode);
       isFrozen = false;
       frozenNode = null;
       setHoveredNode(default_hover ? state.defaultNode : undefined);
-    }
-  });
-
-  // Update hover tracking
-  renderer.on("enterNode", ({ node }) => { 
-    currentHoveredNode = node;
-    console.log('Entering node:', node, 'shiftPressed:', shiftPressed, 'isFrozen:', isFrozen);
-    if (!isFrozen) {
-      setHoveredNode(node);
-    }
-  });
-  
-  renderer.on("leaveNode", () => { 
-    console.log('Leaving node. shiftPressed:', shiftPressed, 'isFrozen:', isFrozen, 'frozenNode:', frozenNode);
-    if (!isFrozen) {
-      currentHoveredNode = null;
-      setHoveredNode(default_hover ? state.defaultNode : undefined);
-    } else if (frozenNode) {
-      setHoveredNode(frozenNode);
     }
   });
 
