@@ -76,6 +76,8 @@
         node_data.size = 2 + Math.sqrt(node_data.decl_count) / 5;
       }
 
+      // Removed dynamic layout code to keep the graph static
+      /*
       var force_atlas_settings = {
         barnesHutOptimize: false,
         strongGravityMode: false,
@@ -94,6 +96,7 @@
         settings: force_atlas_settings,
       });
       worker.start();
+      */
 
       window.graph = graph;
       window.renderer = new Sigma.Sigma(graph, container, {
