@@ -6,12 +6,20 @@
   <script src="vendor/graphology.min.js"></script>
   <script src="vendor/graphology-library.min.js"></script>
   <style>
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      position: relative;
+    }
     .sigma {
       position: absolute;
       width: 100%;
       height: 100%;
       top: 0;
       left: 0;
+      overflow: hidden;
     }
   </style>
 </head>
@@ -23,13 +31,22 @@
 
     var render_gexf = (gexf) => {
       let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
-      
-      // Remove init node that connects to everything
       graph.dropNode('core:init.default');
 
-      new Sigma.Sigma(graph, container, {
+      // Initial positions for nodes (required for visualization)
+      let sorted_nodes = Array.from(graph.nodes()).sort();
+      for (let [i, node] of sorted_nodes.entries()) {
+        let node_data = graph.getNodeAttributes(node);
+        var theta = i / sorted_nodes.length;
+        node_data.x = Math.cos(theta * 2 * Math.PI);
+        node_data.y = Math.sin(theta * 2 * Math.PI);
+        node_data.size = 3; // Basic size for visibility
+      }
+
+      let renderer = new Sigma.Sigma(graph, container, {
         defaultEdgeType: "arrow",
-        defaultEdgeColor: "#c0c0c0"
+        defaultEdgeColor: "#c0c0c0",
+        minArrowSize: 5
       });
     };
 
