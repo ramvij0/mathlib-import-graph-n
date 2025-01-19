@@ -1,29 +1,27 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Minimal Graph</title>
+  <title>Minimal Graph Skeleton</title>
   <script src="vendor/sigma.min.js"></script>
   <script src="vendor/graphology.min.js"></script>
   <script src="vendor/graphology-library.min.js"></script>
   <style>
-    html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
-    #graph-container { width: 100%; height: 100%; }
+    html, body { margin:0; padding:0; width:100%; height:100%; }
+    #sigma-container { width:100%; height:100%; }
   </style>
 </head>
 <body>
-  <div id="graph-container"></div>
+  <div id="sigma-container"></div>
   <script>
     fetch("import.gexf")
-      .then(r => r.text())
+      .then(response => response.text())
       .then(gexf => {
         const graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
-        new Sigma.Sigma(graph, document.getElementById("graph-container"), {
-          // Disables user camera control so it stays still:
-          allowCameraInteraction: false
-        });
+        new Sigma.Sigma(graph, document.getElementById("sigma-container"));
       });
   </script>
 </body>
 </html>
+
 
