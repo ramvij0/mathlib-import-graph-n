@@ -1,46 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="utf-8">
-  <title>Minimal Sigma.js + Graphology Example</title>
 
-  <!-- Load libraries -->
+  <!-- Load the minimal required libraries -->
   <script src="vendor/sigma.min.js"></script>
   <script src="vendor/graphology.min.js"></script>
   <script src="vendor/graphology-library.min.js"></script>
-
-  <!-- Minimal styling: full page container -->
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-    }
-    #sigma-container {
-      width: 100%;
-      height: 100%;
-    }
-  </style>
 </head>
-<body>
-  <!-- Graph container -->
-  <div id="sigma-container"></div>
+<body style="margin: 0;">
+  <!-- A container that fills the browser viewport -->
+  <div id="sigma-container" style="width: 100%; height: 100vh;"></div>
 
   <script>
-    // Example: fetch a GEXF file from the same directory.
-    // Change "import.gexf" as needed for your actual path.
+    // Fetch and parse the GEXF file, then render it with Sigma
     fetch("import.gexf")
       .then(response => response.text())
-      .then(gexfString => {
-        // Parse the GEXF into a Graphology object
-        const Graph = graphology.Graph;
-        const parsedGraph = graphologyLibrary.gexf.parse(Graph, gexfString);
-
-        // Create a Sigma instance to visualize the graph
-        new Sigma.Sigma(parsedGraph, document.getElementById("sigma-container"));
-      })
-      .catch(error => {
-        console.error("Error loading GEXF:", error);
+      .then(gexfData => {
+        const graph = graphologyLibrary.gexf.parse(graphology.Graph, gexfData);
+        new sigma.Sigma(graph, document.getElementById("sigma-container"));
       });
   </script>
 </body>
