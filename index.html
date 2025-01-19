@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Minimal Graph</title>
+  <title>Graph Visualization</title>
   <script src="vendor/sigma.min.js"></script>
   <script src="vendor/graphology.min.js"></script>
   <script src="vendor/graphology-library.min.js"></script>
@@ -31,22 +31,32 @@
 
     var render_gexf = (gexf) => {
       let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
+      let rev_graph = graphologyLibrary.operators.reverse(graph);
       graph.dropNode('core:init.default');
 
-      // Initial positions for nodes (required for visualization)
+      // Initial positions
       let sorted_nodes = Array.from(graph.nodes()).sort();
       for (let [i, node] of sorted_nodes.entries()) {
         let node_data = graph.getNodeAttributes(node);
         var theta = i / sorted_nodes.length;
-        node_data.x = Math.cos(theta * 2 * Math.PI);
-        node_data.y = Math.sin(theta * 2 * Math.PI);
-        node_data.size = 3; // Basic size for visibility
+        node_data.x = 0.1 * Math.cos(theta * 2 * Math.PI);
+        node_data.y = 0.1 * Math.sin(theta * 2 * Math.PI);
+        node_data.size = 2;
       }
 
-      let renderer = new Sigma.Sigma(graph, container, {
+      // Basic force atlas layout
+      graphologyLibrary.layoutForceAtlas2.assign(graph, {
+        iterations: 10,
+        settings: {
+          gravity: 0.05,
+          scalingRatio: 10,
+        }
+      });
+
+      window.renderer = new Sigma.Sigma(graph, container, {
         defaultEdgeType: "arrow",
         defaultEdgeColor: "#c0c0c0",
-        minArrowSize: 5
+        minArrowSize: 30,
       });
     };
 
