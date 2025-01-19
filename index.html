@@ -30,6 +30,14 @@
     let container = document.getElementById('sigma-example');
     var render_gexf = (gexf) => {
       let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
+      let rev_graph = graphologyLibrary.operators.reverse(graph);
+
+      for (let [node, node_data] of graph.nodeEntries()) {
+        let [proj, path_str] = node.split(':');
+        node_data.proj = proj;
+        node_data.path = path_str.split('.');
+      }
+
       graph.dropNode('core:init.default');
 
       for (let [node, node_data] of graph.nodeEntries()) {
@@ -39,16 +47,33 @@
       }
 
       for (let [key, attrs, s, t, sdata, tdata] of graph.edgeEntries()) {
-        attrs.weight = 1;
+        var ncommon = 0;
+        for (var i = 0; i < Math.min(sdata.path.length, tdata.path.length); i++) {
+          if (sdata.path[i] != tdata.path[i]) break;
+          ncommon = i + 1;
+        }
+        
+        if (sdata.proj != tdata.proj) {
+          attrs.weight = 1;
+        }
+        else if (ncommon == 0) {
+          attrs.weight = 2;
+        }
+        else if (ncommon == 1) {
+          attrs.weight = 4;
+        }
+        else {
+          attrs.weight = 8;
+        }
       }
 
       let sorted_nodes = Array.from(graph.nodes()).sort();
       for (let [i, node] of sorted_nodes.entries()) {
         let node_data = graph.getNodeAttributes(node);
         var theta = i / sorted_nodes.length;
-        node_data.x = Math.cos(theta * 2 * Math.PI);
-        node_data.y = Math.sin(theta * 2 * Math.PI);
-        node_data.size = 3;
+        node_data.x = 0.1 * Math.cos(theta * 2 * Math.PI);
+        node_data.y = 0.1 * Math.sin(theta * 2 * Math.PI);
+        node_data.size = 2 + Math.sqrt(node_data.decl_count) / 5;
       }
 
       var force_atlas_settings = {
@@ -79,7 +104,8 @@
       });
     };
 
-    fetch("import.gexf")
+    let docs_url = "https://leanprover-community.github.io/mathlib_docs/";
+    fetch(docs_url + "import.gexf")
       .then((res) => res.text())
       .then(render_gexf);
   </script>
