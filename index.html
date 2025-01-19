@@ -76,27 +76,6 @@
         node_data.size = 2 + Math.sqrt(node_data.decl_count) / 5;
       }
 
-      // Removed dynamic layout code to keep the graph static
-      /*
-      var force_atlas_settings = {
-        barnesHutOptimize: false,
-        strongGravityMode: false,
-        gravity: 0.05,
-        scalingRatio: 10,
-        slowDown: 10,
-        edgeWeightInfluence: 1,
-      };
-
-      graphologyLibrary.layoutForceAtlas2.assign(graph, {
-        iterations: 10,
-        settings: force_atlas_settings,
-      });
-
-      var worker = new graphologyLibrary.FA2Layout(graph, {
-        settings: force_atlas_settings,
-      });
-      worker.start();
-      */
 
       window.graph = graph;
       window.renderer = new Sigma.Sigma(graph, container, {
