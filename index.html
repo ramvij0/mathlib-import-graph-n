@@ -7,8 +7,7 @@
   <script src="vendor/graphology-library.min.js"></script>
   <style>
     html, body {
-      height: 100%;
-      width: 100%;
+      height: 100%; width: 100%;
       margin: 0;
       padding: 0;
       position: relative;
@@ -28,35 +27,45 @@
 
   <script>
     let container = document.getElementById('sigma-example');
-
     var render_gexf = (gexf) => {
       let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
       let rev_graph = graphologyLibrary.operators.reverse(graph);
       graph.dropNode('core:init.default');
 
-      // Initial positions
+      for (let [node, node_data] of graph.nodeEntries()) {
+        let [proj, path_str] = node.split(':');
+        node_data.proj = proj;
+        node_data.path = path_str.split('.');
+      }
+
       let sorted_nodes = Array.from(graph.nodes()).sort();
       for (let [i, node] of sorted_nodes.entries()) {
         let node_data = graph.getNodeAttributes(node);
         var theta = i / sorted_nodes.length;
         node_data.x = 0.1 * Math.cos(theta * 2 * Math.PI);
         node_data.y = 0.1 * Math.sin(theta * 2 * Math.PI);
-        node_data.size = 2;
       }
 
-      // Basic force atlas layout
-      graphologyLibrary.layoutForceAtlas2.assign(graph, {
-        iterations: 10,
+      for (let [node, node_data] of graph.nodeEntries()) {
+        node_data.size = 2 + Math.sqrt(node_data.decl_count) / 5;
+      }
+
+      let worker = new graphologyLibrary.FA2Layout(graph, {
         settings: {
+          barnesHutOptimize: false,
           gravity: 0.05,
           scalingRatio: 10,
+          slowDown: 10,
+          edgeWeightInfluence: 1
         }
       });
+      worker.start();
 
       window.renderer = new Sigma.Sigma(graph, container, {
         defaultEdgeType: "arrow",
         defaultEdgeColor: "#c0c0c0",
         minArrowSize: 30,
+        zIndex: true
       });
     };
 
