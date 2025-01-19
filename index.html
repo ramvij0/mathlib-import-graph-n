@@ -1,34 +1,39 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html>
 <head>
-  <meta charset="utf-8">
   <title>Minimal Graph</title>
   <script src="vendor/sigma.min.js"></script>
   <script src="vendor/graphology.min.js"></script>
   <script src="vendor/graphology-library.min.js"></script>
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
+    .sigma {
+      position: absolute;
       width: 100%;
       height: 100%;
-    }
-    #sigma-container {
-      width: 100%;
-      height: 100%;
+      top: 0;
+      left: 0;
     }
   </style>
 </head>
 <body>
-  <div id="sigma-container"></div>
+  <div class="sigma" id="sigma-example"></div>
+
   <script>
-    // Load and parse the GEXF, then render it with Sigma
-    fetch("import.gexf")
-      .then(response => response.text())
-      .then(gexf => {
-        const graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
-        new Sigma.Sigma(graph, document.getElementById("sigma-container"));
+    let container = document.getElementById('sigma-example');
+
+    var render_gexf = (gexf) => {
+      let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
+      
+      // Remove init node that connects to everything
+      graph.dropNode('core:init.default');
+
+      new Sigma.Sigma(graph, container, {
+        defaultEdgeType: "arrow",
+        defaultEdgeColor: "#c0c0c0"
       });
+    };
+
+    fetch("import.gexf").then((res) => res.text()).then(render_gexf);
   </script>
 </body>
 </html>
