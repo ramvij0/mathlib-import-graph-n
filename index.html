@@ -2,24 +2,30 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <title>Minimal Sigma & Graphology Example</title>
 
-  <!-- Load the minimal required libraries -->
   <script src="vendor/sigma.min.js"></script>
   <script src="vendor/graphology.min.js"></script>
   <script src="vendor/graphology-library.min.js"></script>
 </head>
 <body style="margin: 0;">
-  <!-- A container that fills the browser viewport -->
   <div id="sigma-container" style="width: 100%; height: 100vh;"></div>
 
   <script>
-    // Fetch and parse the GEXF file, then render it with Sigma
     fetch("import.gexf")
       .then(response => response.text())
       .then(gexfData => {
         const graph = graphologyLibrary.gexf.parse(graphology.Graph, gexfData);
-        new sigma.Sigma(graph, document.getElementById("sigma-container"));
-      });
+
+        graph.forEachNode(node => {
+          graph.setNodeAttribute(node, "x", Math.random());
+          graph.setNodeAttribute(node, "y", Math.random());
+          graph.setNodeAttribute(node, "size", 5);
+        });
+
+        new Sigma.Sigma(graph, document.getElementById("sigma-container"));
+      })
+      .catch(err => console.error("Error loading GEXF:", err));
   </script>
 </body>
 </html>
