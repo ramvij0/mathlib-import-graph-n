@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
   <title>Graph Visualization</title>
   <script src="vendor/sigma.min.js"></script>
   <script src="vendor/graphology.min.js"></script>
@@ -29,38 +30,47 @@
     let container = document.getElementById('sigma-example');
     var render_gexf = (gexf) => {
       let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
-      let rev_graph = graphologyLibrary.operators.reverse(graph);
       graph.dropNode('core:init.default');
 
       for (let [node, node_data] of graph.nodeEntries()) {
-        let [proj, path_str] = node.split(':');
-        node_data.proj = proj;
-        node_data.path = path_str.split('.');
+        if (node_data.proj == 'mathlib') {
+          node_data.label = node_data.path.join('.');
+        }
+      }
+
+      for (let [key, attrs, s, t, sdata, tdata] of graph.edgeEntries()) {
+        attrs.weight = 1;
       }
 
       let sorted_nodes = Array.from(graph.nodes()).sort();
       for (let [i, node] of sorted_nodes.entries()) {
         let node_data = graph.getNodeAttributes(node);
         var theta = i / sorted_nodes.length;
-        node_data.x = 0.1 * Math.cos(theta * 2 * Math.PI);
-        node_data.y = 0.1 * Math.sin(theta * 2 * Math.PI);
+        node_data.x = Math.cos(theta * 2 * Math.PI);
+        node_data.y = Math.sin(theta * 2 * Math.PI);
+        node_data.size = 3;
       }
 
-      for (let [node, node_data] of graph.nodeEntries()) {
-        node_data.size = 2 + Math.sqrt(node_data.decl_count) / 5;
-      }
+      var force_atlas_settings = {
+        barnesHutOptimize: false,
+        strongGravityMode: false,
+        gravity: 0.05,
+        scalingRatio: 10,
+        slowDown: 10,
+        edgeWeightInfluence: 1,
+      };
 
-      let worker = new graphologyLibrary.FA2Layout(graph, {
-        settings: {
-          barnesHutOptimize: false,
-          gravity: 0.05,
-          scalingRatio: 10,
-          slowDown: 10,
-          edgeWeightInfluence: 1
-        }
+      graphologyLibrary.layoutForceAtlas2.assign(graph, {
+        iterations: 10,
+        settings: force_atlas_settings,
+      });
+
+      var worker = new graphologyLibrary.FA2Layout(graph, {
+        settings: force_atlas_settings,
       });
       worker.start();
 
+      window.graph = graph;
       window.renderer = new Sigma.Sigma(graph, container, {
         defaultEdgeType: "arrow",
         defaultEdgeColor: "#c0c0c0",
@@ -69,7 +79,9 @@
       });
     };
 
-    fetch("import.gexf").then((res) => res.text()).then(render_gexf);
+    fetch("import.gexf")
+      .then((res) => res.text())
+      .then(render_gexf);
   </script>
 </body>
 </html>
