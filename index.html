@@ -46,6 +46,8 @@
         }
       }
 
+      //assign weights to edges
+      //https://graphology.github.io/iteration.html#edgeentries
       for (let [key, attrs, s, t, sdata, tdata] of graph.edgeEntries()) {
         var ncommon = 0;
         for (var i = 0; i < Math.min(sdata.path.length, tdata.path.length); i++) {
@@ -54,16 +56,16 @@
         }
         
         if (sdata.proj != tdata.proj) {
-          attrs.weight = 1;
+          attrs.weight = 1; // different projects, weakest connection
         }
         else if (ncommon == 0) {
-          attrs.weight = 2;
+          attrs.weight = 2; //same project, different subsequent paths
         }
         else if (ncommon == 1) {
-          attrs.weight = 4;
+          attrs.weight = 4; // agree on prefix of length 2
         }
         else {
-          attrs.weight = 8;
+          attrs.weight = 8; // strongest connection
         }
       }
 
@@ -76,7 +78,8 @@
         node_data.size = 2 + Math.sqrt(node_data.decl_count) / 5;
       }
 
-
+      // render graph
+      // https://www.sigmajs.org/docs/advanced/data
       window.graph = graph;
       window.renderer = new Sigma.Sigma(graph, container, {
         defaultEdgeType: "arrow",
