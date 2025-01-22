@@ -32,17 +32,18 @@
       let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
       let rev_graph = graphologyLibrary.operators.reverse(graph);
 
+      graph.dropNode('core:init.default');
+
+      // Single loop to process all nodes
       for (let [node, node_data] of graph.nodeEntries()) {
         let [proj, path_str] = node.split(':');
         node_data.proj = proj;
         node_data.path = path_str.split('.');
-      }
-
-      graph.dropNode('core:init.default');
-
-      for (let [node, node_data] of graph.nodeEntries()) {
+        
         if (node_data.proj == 'mathlib') {
           node_data.label = node_data.path.join('.');
+        } else {
+          graph.dropNode(node);
         }
       }
 
