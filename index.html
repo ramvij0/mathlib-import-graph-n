@@ -41,9 +41,9 @@
         node_data.path = path_str.split('.');
         
         if (node_data.proj == 'mathlib') {
-          node_data.label = node_data.path.join('.');
+          node_data.label = node_data.path.join('.'); // label does not contain "mathlib"
         } else {
-          graph.dropNode(node);
+          graph.dropNode(node); // remove non-mathlib nodes
         }
       }
 
@@ -86,7 +86,9 @@
         defaultEdgeType: "arrow",
         defaultEdgeColor: "#c0c0c0",
         minArrowSize: 30,
-        zIndex: true
+        zIndex: true,
+        renderLabels: true,
+        labelRenderedSizeThreshold: 5 // smaller value shows more labels
       });
     };
 
