@@ -20,6 +20,7 @@
     .status.active .placeholder { visibility: hidden; }
     .status { position: relative; }
     .status .message { position: absolute; top: 0; bottom: 0; width: 100%; text-align: center; }
+    button { margin: 2px; padding: 4px; }
   </style>
 </head>
 <body>
@@ -49,7 +50,7 @@ function hslToRgb(h, s, l){
   var r, g, b;
   if(s == 0){ r = g = b = l; }
   else{
-    var hue2rgb = function hue2rgb(p, q, t){
+    var hue2rgb = function(p, q, t){
       if(t < 0) t += 1; if(t > 1) t -= 1;
       if(t < 1/6) return p + (q - p) * 6 * t;
       if(t < 1/2) return q; if(t < 2/3) return p + (q - p) * (2/3 - t) * 6; return p;
@@ -72,6 +73,14 @@ let key = document.getElementById('key');
 let pause = document.getElementById('pause');
 const toggleButton = document.getElementById('toggleAll');
 
+function startLayout(graph, force_atlas_settings, pause) {
+  let layoutInterval = setInterval(() => {
+    graphologyLibrary.layoutForceAtlas2.assign(graph, { iterations: 1, settings: force_atlas_settings });
+    window.renderer.refresh();
+  }, 50);
+  return layoutInterval;
+}
+
 var render_gexf = (gexf) => {
   let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
   let rev_graph = graphologyLibrary.operators.reverse(graph);
@@ -79,12 +88,19 @@ var render_gexf = (gexf) => {
   var default_hover = !!params.get("default_hover");
   
   for (let [node, node_data] of graph.nodeEntries()) {
-    let [proj, path_str] = node.split(':'); node_data.proj = proj; node_data.path = path_str.split('.');
+    let [proj, path_str] = node.split(':'); 
+    node_data.proj = proj; 
+    node_data.path = path_str.split('.');
   }
 
   var tree = new Map();
   for (let [node, node_data] of graph.nodeEntries()) {
-    var at = tree; for (let p of node_data.path) { var curr = at.get(p); if (!curr) { curr = new Map(); at.set(p, curr); } at = curr; }
+    var at = tree; 
+    for (let p of node_data.path) { 
+      var curr = at.get(p); 
+      if (!curr) { curr = new Map(); at.set(p, curr); } 
+      at = curr; 
+    }
   }
 
   var areaSelected = {};
@@ -93,156 +109,115 @@ var render_gexf = (gexf) => {
   while(key.firstChild) key.removeChild(key.lastChild);
   var keyElems = new Map();
 
-  var get_frac = function (path, max_depth=Infinity) {
+  var get_frac = function (path) {
     var pos = 0; var width = 1; var at = tree;
     for (let [i, p] of path.entries()) {
-      var key_arr = Array.from(at.keys()).sort(); width /= key_arr.length; var ind = key_arr.indexOf(p);
-      if (ind == -1) { pos = NaN; break; } pos += width * ind; if (i >= max_depth) break; at = at.get(p);
-    } return [pos, path.length];
+      var key_arr = Array.from(at.keys()).sort(); 
+      width /= key_arr.length; 
+      var ind = key_arr.indexOf(p);
+      if (ind == -1) break; 
+      pos += width * ind; 
+      at = at.get(p);
+    } 
+    return [pos, path.length];
   };
 
   var get_color = function (node_data, s=1, l=0.5) {
-    var [h, d] = get_frac(node_data.path, 0); var [r, g, b] = hslToRgb(h, s, l); return 'rgb(' + [r, g, b].join(',') + ')'
+    var [h, d] = get_frac(node_data.path); 
+    var [r, g, b] = hslToRgb(h, s, l); 
+    return `rgb(${r},${g},${b})`;
   };
 
   for (let top_level of Array.from(tree.keys()).sort()) {
     if (HIDDEN_AREAS.includes(top_level)) continue; 
-    var li = document.createElement('li'); var sp = document.createElement('span');
-    sp.style.backgroundColor = get_color({path: [top_level]}); sp.style.borderColor = get_color({path: [top_level]}, 1, 0.4);
-    li.appendChild(sp); li.appendChild(document.createTextNode(top_level)); li.style.fontWeight = 'bold'; key.appendChild(li); keyElems.set(top_level, li);
+    var li = document.createElement('li'); 
+    var sp = document.createElement('span');
+    sp.style.backgroundColor = get_color({path: [top_level]}); 
+    sp.style.borderColor = get_color({path: [top_level]}, 1, 0.4);
+    
+    var btn = document.createElement('button');
+    btn.textContent = 'Remove';
+    btn.style.marginLeft = '8px';
+    
+    li.appendChild(sp); 
+    li.appendChild(document.createTextNode(top_level));
+    li.appendChild(btn);
+    li.style.fontWeight = 'bold'; 
+    key.appendChild(li); 
+    keyElems.set(top_level, li);
   }
 
   keyElems.forEach((li, top_level) => {
+    li.querySelector('button').addEventListener('click', (e) => {
+      e.stopPropagation(); 
+      const nodesToRemove = []; 
+      graph.forEachNode((node, attrs) => { 
+        if (attrs.path[0] === top_level) nodesToRemove.push(node); 
+      });
+      nodesToRemove.forEach(node => graph.dropNode(node)); 
+      window.renderer.refresh();
+    });
+    
     li.addEventListener('click', (event) => {
       areaSelected[top_level] = !areaSelected[top_level];
-      const listItem = keyElems.get(top_level); listItem.style.fontWeight = areaSelected[top_level] ? 'bold' : 'normal';
+      li.style.fontWeight = areaSelected[top_level] ? 'bold' : 'normal';
       graph.forEachNode((node, attrs) => graph.setNodeAttribute(node, 'hidden', !areaSelected[attrs.path[0]]));
       graph.forEachEdge((edge, attrs, source, target) => graph.setEdgeAttribute(edge, 'hidden', !(!graph.getNodeAttribute(source, 'hidden') && !graph.getNodeAttribute(target, 'hidden'))));
-      renderer.refresh();
+      window.renderer.refresh();
     });
   });
 
   graph.dropNode('core:init.default');
-  for (let [node, node_data] of graph.nodeEntries()) node_data.proj == 'mathlib' ? node_data.label = node_data.path.join('.') : graph.dropNode(node);
+  for (let [node, node_data] of graph.nodeEntries()) {
+    if (node_data.proj !== 'mathlib') graph.dropNode(node);
+    else node_data.label = node_data.path.join('.');
+  }
   
   for (let [node, node_data] of graph.nodeEntries()) {
     graph.setNodeAttribute(node, 'color', get_color(node_data));
-    graph.setNodeAttribute(node, 'dark_color', get_color(node_data, 1, 0.4));
-    graph.setNodeAttribute(node, 'dim_color', get_color(node_data, 0.5, 7/8));
-    graph.setNodeAttribute(node, 'very_dim_color', get_color(node_data, 0.5, 15/16));
     node_data.size = 2 + Math.sqrt(node_data.decl_count) / 5;
   }
 
-  for (let [key, attrs, s, t, sdata, tdata] of graph.edgeEntries()) {
-    var ncommon = common_prefix(sdata.path, tdata.path);
-    if (sdata.proj != tdata.proj) attrs.weight = 1;
-    else if (ncommon == 0) attrs.weight = 2;
-    else if (ncommon == 1) attrs.weight = 4;
-    else attrs.weight = 8;
-  }
+  var force_atlas_settings = { 
+    barnesHutOptimize: false, 
+    strongGravityMode: false, 
+    gravity: 0.05, 
+    scalingRatio: 10, 
+    slowDown: 10, 
+    edgeWeightInfluence: 1, 
+    filterNodes: node => !graph.getNodeAttribute(node, 'hidden'), 
+    filterEdges: edge => !graph.getEdgeAttribute(edge, 'hidden') 
+  };
 
-  let sorted_nodes = Array.from(graph.nodes()).sort();
-  for (let [i, node] of sorted_nodes.entries()) {
-    let node_data = graph.getNodeAttributes(node); var theta = i / sorted_nodes.length; var r = 1;
-    node_data.x = 0.1*r * Math.cos(theta * 2 * Math.PI); node_data.y = 0.1*r * Math.sin(theta * 2 * Math.PI);
-  }
+  let layoutInterval = startLayout(graph, force_atlas_settings, pause);
 
-  var force_atlas_settings = { barnesHutOptimize: false, strongGravityMode: false, gravity: 0.05, scalingRatio: 10, slowDown: 10, edgeWeightInfluence: 1, filterNodes: node => !graph.getNodeAttribute(node, 'hidden'), filterEdges: edge => !graph.getEdgeAttribute(edge, 'hidden') };
-  graphologyLibrary.layoutForceAtlas2.assign(graph, { iterations: 10, settings: force_atlas_settings });
-
-  let layoutInterval = null;
-  const originalTotalNodes = graph.size;
-
-  keyElems.forEach((li, top_level) => {
-    const existingButton = li.querySelector('button'); if (existingButton) li.removeChild(existingButton);
-    const removeButton = document.createElement('button'); removeButton.textContent = 'Remove'; li.appendChild(removeButton);
-    removeButton.addEventListener('click', (e) => {
-      e.stopPropagation(); const nodesToRemove = []; graph.forEachNode((node, attrs) => { if (attrs.path[0] === top_level) nodesToRemove.push(node); });
-      nodesToRemove.forEach(node => graph.dropNode(node)); stopLayout();
-      graphologyLibrary.layoutForceAtlas2.assign(graph, { iterations: 10, settings: force_atlas_settings }); if (!pause.checked) startLayout(); renderer.refresh();
-    });
+  if (window.renderer) window.renderer.kill();
+  window.renderer = new Sigma.Sigma(graph, container, {
+    defaultEdgeType: "arrow", 
+    defaultEdgeColor: "#c0c0c0", 
+    minArrowSize: 30, 
+    zIndex: true,
+    nodeReducer: (node, data) => data,
+    edgeReducer: (edge, data) => data
   });
 
-  function startLayout() {
-    layoutInterval = setInterval(() => {
-      graphologyLibrary.layoutForceAtlas2.assign(graph, { iterations: 1, settings: force_atlas_settings }); renderer.refresh();
-    }, 50);
-  }
-
-  function stopLayout() { if (layoutInterval) { clearInterval(layoutInterval); layoutInterval = null; } }
-
-  if (!pause.checked) startLayout();
+  document.getElementById('restoreAll').addEventListener('click', () => {
+    clearInterval(layoutInterval);
+    render_gexf(originalGexf);
+  });
 
   pause.addEventListener('change', (event) => {
-    event.currentTarget.checked ? stopLayout() : startLayout();
+    if (event.currentTarget.checked) clearInterval(layoutInterval);
+    else layoutInterval = startLayout(graph, force_atlas_settings, pause);
   });
+};
 
-  window.graph = graph;
-  if (window.renderer) { window.renderer.kill(); delete window.renderer; }
-  window.renderer = new Sigma.Sigma(graph, container, {
-    defaultEdgeType: "arrow", defaultEdgeColor: "#c0c0c0", minArrowSize: 30, zIndex: true,
-    nodeReducer: (node, data) => {
-      var res = { ...data };
-      if (state.hoveredNode) {
-        if (state.hoveredNode === node) res.highlighted = true;
-        if (state.hoveredDescendants.has(node)) { res.zIndex = 2; if (state.visibleNodeCount <= 0.25 * originalTotalNodes) res.label = data.label; }
-        else if (state.hoveredAncestors.has(node)) res.color = res.dim_color;
-        else { res.label = undefined; res.color = res.very_dim_color; }
-      }
-      else if (state.hoveredPath) data.path[0] == state.hoveredPath ? res.zIndex = 2 : (res.label = undefined, res.color = res.dim_color);
-      else if (state.defaultNode === node) res.highlighted = true;
-      return res;
-    },
-    edgeReducer: (edge, data) => {
-      var res = { ...data };
-      if (state.hoveredNode) {
-        if (state.hoveredDescendants.has(graph.source(edge))) res.size = 1.5;
-        else if (state.hoveredNode == graph.target(edge)) res.color = graph.getNodeAttributes(state.hoveredNode).dark_color;
-        else res.hidden = true;
-      }
-      else if (state.hoveredPath) {
-        let src = graph.getNodeAttributes(graph.source(edge)), target = graph.getNodeAttributes(graph.target(edge));
-        if (src.path[0] == state.hoveredPath && target.path[0] == state.hoveredPath) res.color = get_color({path: [state.hoveredPath]}, 1, 0.4);
-        else if (src.path[0] == state.hoveredPath) res.color = "#808080"; else res.color = "#E0E0E0";
-      }
-      return res;
-    },
+fetch(docs_url + "import.gexf")
+  .then(res => res.text())
+  .then(gexf => {
+    originalGexf = gexf;
+    render_gexf(gexf);
   });
-
-  let statusElem = document.getElementById('statusWrapper'), statusMsgElem = document.getElementById('statusMessage');
-  let setStatus = function(html) {
-    if (html) { statusElem.classList.add('active'); statusMsgElem.innerHTML = html; }
-    else { statusElem.classList.remove('active'); statusMsgElem.innerHTML = ''; }
-  }
-
-  for (let [top_level, li] of keyElems) {
-    li.addEventListener('mouseenter', (event) => {
-      setHoveredNode(undefined); state.hoveredPath = top_level; let nfiles = 0, ndecls = 0;
-      for (let [n, node_data] of graph.nodeEntries()) if (node_data.path[0] == top_level) { nfiles += 1; ndecls += node_data.decl_count; }
-      setStatus("Highlighting " + nfiles + " files consisting of "+ndecls+" declarations"); renderer.refresh();
-    });
-    li.addEventListener('mouseleave', (event) => { state.hoveredPath = undefined; setHoveredNode(default_hover ? state.defaultNode : undefined); setStatus(null); renderer.refresh(); });
-  }
-
-  let setHoveredNode = function(node) {
-    if (node) {
-      state.hoveredNode = node; var descendants = new Set(), ancestors = new Set(), ndecls = 0;
-      graphologyLibrary.traversal.bfsFromNode(graph, node, (n, attr, depth) => { descendants.add(n); ndecls += graph.getNodeAttribute(n, 'decl_count'); });
-      graphologyLibrary.traversal.bfsFromNode(rev_graph, node, (n, attr, depth) => ancestors.add(n));
-      state.hoveredDescendants = descendants; state.hoveredAncestors = ancestors; state.visibleNodeCount = descendants.size + ancestors.size - 1;
-      setStatus((descendants.size - 1) + " files consisting of "+ndecls+" declarations are imported by this file, which in turn is imported by " + (ancestors.size - 1) + " files");
-      container.style.cursor = "pointer";
-    } else { state.hoveredNode = undefined; state.hoveredDescendants = undefined; state.hoveredAncestors = undefined; setStatus(null); container.style.cursor = "inherit"; }
-    renderer.refresh();
-  }
-  
-  let isFrozen = false, frozenNode = null, currentHoveredNode = null;
-  renderer.on("enterNode", ({ node, e }) => { 
-    currentHoveredNode = node;
-    !isFrozen ? setHoveredNode(node) : setHoveredNode(frozenNode);
-  });
-  renderer.on("leaveNode", (event) => { 
-    isFrozen ? event.preventSigmaDefault() : (currentHoveredNode = null, setHoveredNode(default_hover ? state.defaultNode : undefined));
-  });
-  document.addEventListener('keyup', (e) => { if (e.key === 'Shift') { isFrozen = false; frozenNode = null; setHoveredNode(default_hover ? state.defaultNode : undefined); } });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Shift' && currentHoveredNode && !isFrozen) { isFrozen = true; frozenNode = currentHoveredNode; set
+</script>
+</body>
+</html>
