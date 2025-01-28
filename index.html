@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8">
 
-  <title>Mathlib import graph</title>
+  <title>Mathlib Import Graph</title>
 
+  <!-- Include necessary libraries -->
   <script src="vendor/sigma.min.js"></script>
   <script src="vendor/graphology.min.js"></script>
   <script src="vendor/graphology-library.min.js"></script>
@@ -85,6 +86,12 @@
       width: 100%;
       text-align: center;
     }
+
+    /* Added Styles for Node Labels Visibility */
+    .sigma-label {
+      font-size: 10px;
+      pointer-events: none; /* Allows interaction with nodes without interference from labels */
+    }
   </style>
 </head>
 <body>
@@ -113,20 +120,8 @@ var docs_url = params.get("docs_url") || "https://leanprover-community.github.io
 
 // Configuration
 const HIDDEN_AREAS = ['init', 'girard', 'wiedijk_100_theorems', 'data', 'map_floor', 'system', 'tactic', 'testing', 'phillips', 'meta', 'deprecated', 'examples', 'cyclotomic_105', 'arithcc', 'char_p_zero_ne_char_zero', 'canonically_ordered_comm_semiring_two_mul','miu_language',  'direct_sum_is_internal', 'imo', 'homogeneous_prime_not_prime', 'linear_order_with_pos_mul_pos_eq_zero', 'oxford_invariants', 'seminorm_lattice_not_distrib', 'zero_divisors_in_add_monoid_algebras'];  // Areas to always hide
-// core, mathlib-archive, mathlib-counterexamples are always dropped since they do not start with `mathlib`
 
-// From stackoverflow
-/**
- * Converts an HSL color value to RGB. Conversion formula
- * adapted from http://en.wikipedia.org/wiki/HSL_color_space.
- * Assumes h, s, and l are contained in the set [0, 1] and
- * returns r, g, and b in the set [0, 255].
- *
- * @param   {number}  h       The hue
- * @param   {number}  s       The saturation
- * @param   {number}  l       The lightness
- * @return  {Array}           The RGB representation
- */
+// From stackoverflow: HSL to RGB conversion
 function hslToRgb(h, s, l){
   var r, g, b;
 
@@ -152,6 +147,7 @@ function hslToRgb(h, s, l){
   return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
 }
 
+// Function to find common prefix length
 var common_prefix = function(a, b) {
   for (var i = 0; i < Math.min(a.length, b.length); i++) {
     if (a[i] != b[i]) break;
@@ -165,12 +161,66 @@ let key = document.getElementById('key');
 let pause = document.getElementById('pause');
 const toggleButton = document.getElementById('toggleAll');
 
+
+let hiddenNodes = {}; // Structure: { nodeId: { attributes: {}, edges: { edgeId: { source, target, attributes } } } }
+
+
+function hideNodes(nodesToHide, graph) {
+  nodesToHide.forEach(node => {
+    // Store node attributes
+    let nodeData = graph.getNodeAttributes(node);
+    hiddenNodes[node] = { attributes: nodeData, edges: {} };
+    
+
+    graph.forEachEdge(node, (edge, attrs, source, target) => {
+      hiddenNodes[node].edges[edge] = { source, target, attributes: attrs };
+      graph.dropEdge(edge);
+    });
+
+
+    graph.dropNode(node);
+  });
+}
+
+
+function showNodes(nodesToShow, graph) {
+  nodesToShow.forEach(node => {
+    if (hiddenNodes[node]) {
+      // Re-add node with its attributes
+      graph.addNode(node, hiddenNodes[node].attributes);
+
+
+      for (let edgeId in hiddenNodes[node].edges) {
+        let edge = hiddenNodes[node].edges[edgeId];
+        graph.addEdge(edge.source, edge.target, edge.attributes);
+      }
+
+
+      delete hiddenNodes[node];
+    }
+  });
+}
+
+// label attempt
+function updateLabelVisibility(graph, renderer) {
+  const totalNodes = graph.order;
+  const visibleNodes = graph.order - Object.keys(hiddenNodes).length;
+  const visibilityThreshold = 0.25; // 25%
+
+  // Calc % of visible node
+  const visiblePercentage = visibleNodes / totalNodes;
+
+  window.showAllLabels = visiblePercentage <= visibilityThreshold;
+
+
+  renderer.refresh();
+}
+
 var render_gexf = (gexf) => {
   let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
   
   let rev_graph = graphologyLibrary.operators.reverse(graph);
 
-  // interaction state
   var state = {
     hoveredNode: undefined,
     hoveredDescendants: undefined,
@@ -179,7 +229,6 @@ var render_gexf = (gexf) => {
   };
   var default_hover = !!params.get("default_hover");
 
-  // unpack the node labels into data
   for (let [node, node_data] of graph.nodeEntries()) {
     let [proj, path_str] = node.split(':');
     node_data.proj = proj;
@@ -200,14 +249,12 @@ var render_gexf = (gexf) => {
     }
   }
 
-  // Log all areas in the tree
   console.log("All areas in tree:", Array.from(tree.keys()).sort());
   console.log("Hidden areas:", HIDDEN_AREAS);
   console.log("Visible areas:", Array.from(tree.keys())
     .filter(area => !HIDDEN_AREAS.includes(area))
     .sort());
 
-  // Initialize area selection (excluding hidden areas)
   var areaSelected = {};
   for (let area of tree.keys()) {
     if (!HIDDEN_AREAS.includes(area)) {
@@ -215,12 +262,9 @@ var render_gexf = (gexf) => {
     }
   }
 
-  // Build key list (excluding hidden areas)
   while(key.firstChild) key.removeChild(key.lastChild);
   var keyElems = new Map();
   
-  // return [f, depth] where f is in [0, 1) and corresponds to some measure
-  // of order within the heirarchy.
   var get_frac = function (path, max_depth=Infinity) {
     var pos = 0;
     var width = 1;
@@ -248,7 +292,6 @@ var render_gexf = (gexf) => {
     return 'rgb(' + [r, g, b].join(',') + ')'
   };
 
-  // Build key from top-level entries in tree
   for (let top_level of Array.from(tree.keys()).sort()) {
     if (HIDDEN_AREAS.includes(top_level)) continue;  // Skip hidden areas in key list
     
@@ -266,7 +309,15 @@ var render_gexf = (gexf) => {
     keyElems.set(top_level, li);
   }
 
-  // Then add click handlers to all list items
+  let nodesToHideInitially = [];
+  graph.forEachNode((node, attrs) => {
+    if (attrs && attrs.path && HIDDEN_AREAS.includes(attrs.path[0])) {
+      nodesToHideInitially.push(node);
+    }
+  });
+  hideNodes(nodesToHideInitially, graph);
+  
+  // Build key list and implement toggle functionality
   keyElems.forEach((li, top_level) => {
     li.addEventListener('click', (event) => {
       console.log('Before click:', {
@@ -275,48 +326,55 @@ var render_gexf = (gexf) => {
         fontWeight: li.style.fontWeight
       });
       
-      // Toggle this area
+      if (areaSelected[top_level]) {
+        // Hide nodes in this area
+        let nodesToHide = Array.from(graph.nodes()).filter(node => {
+          let nodePath = graph.getNodeAttribute(node, 'path');
+          return nodePath && nodePath[0] === top_level;
+        });
+        hideNodes(nodesToHide, graph);
+      } else {
+        // Show nodes in this area
+        // Re-add nodes from hiddenNodes that belong to this area
+        let nodesToShow = Object.keys(hiddenNodes).filter(node => {
+          let nodePath = hiddenNodes[node].attributes.path;
+          return nodePath && nodePath[0] === top_level;
+        });
+        showNodes(nodesToShow, graph);
+      }
+
+      // Toggle the selection state
       areaSelected[top_level] = !areaSelected[top_level];
-      const listItem = keyElems.get(top_level);
-      listItem.style.fontWeight = areaSelected[top_level] ? 'bold' : 'normal';
+      li.style.fontWeight = areaSelected[top_level] ? 'bold' : 'normal';
       
       console.log('After click:', {
         area: top_level,
         state: areaSelected[top_level],
-        fontWeight: listItem.style.fontWeight
+        fontWeight: li.style.fontWeight
       });
       
-      // Update graph visibility
-      graph.forEachNode((node, attrs) => {
-        const isVisible = areaSelected[attrs.path[0]];
-        graph.setNodeAttribute(node, 'hidden', !isVisible);
-      });
-      
-      graph.forEachEdge((edge, attrs, source, target) => {
-        const sourceVisible = !graph.getNodeAttribute(source, 'hidden');
-        const targetVisible = !graph.getNodeAttribute(target, 'hidden');
-        graph.setEdgeAttribute(edge, 'hidden', !(sourceVisible && targetVisible));
-      });
+      // Update label visibility based on the new number of visible nodes
+      updateLabelVisibility(graph, renderer);
       
       renderer.refresh();
     });
   });
 
-  // remove the node that's connected to everything!
+  // Remove the node that's connected to everything!
   graph.dropNode('core:init.default');
 
-  // remove the `mathlib` prefix
+  // Remove the `mathlib` prefix and keep only 'mathlib' nodes
   for (let [node, node_data] of graph.nodeEntries()) {
-    //console.log(node_data.proj);
     if (node_data.proj == 'mathlib') {
       node_data.label = node_data.path.join('.');
     }
     else{
-      graph.dropNode(node); // remove non-mathlib nodes
+      // Remove non-mathlib nodes and store them
+      hideNodes([node], graph);
     }
   }
 
-  // color the nodes
+  // Color the nodes
   for (let [node, node_data] of graph.nodeEntries()) {
     graph.setNodeAttribute(node, 'color', get_color(node_data));
     graph.setNodeAttribute(node, 'dark_color', get_color(node_data, 1, 0.4));
@@ -324,16 +382,16 @@ var render_gexf = (gexf) => {
     graph.setNodeAttribute(node, 'very_dim_color', get_color(node_data, 0.5, 15/16));
   }
 
-  //size the nodes
+  // Size the nodes
   for (let [node, node_data] of graph.nodeEntries()) {
     node_data.size = 2 + Math.sqrt(node_data.decl_count) / 5;
   }
 
-  // set up the edge weights, to make the layout somewhat ok
+  // Set up the edge weights to influence layout
   for (let [key, attrs, s, t, sdata, tdata] of graph.edgeEntries()) {
     var ncommon = common_prefix(sdata.path, tdata.path);
     if (sdata.proj != tdata.proj) {
-      attrs.weight = 1
+      attrs.weight = 1;
     }
     else if (ncommon == 0) {
       attrs.weight = 2;
@@ -347,15 +405,10 @@ var render_gexf = (gexf) => {
     // attrs.weight = (sdata.proj == tdata.proj) * Math.pow(5, ncommon) + 1;
   }
 
-  // pick a somewhat arbitrary initial layout
+  // Pick an initial layout (circular)
   let sorted_nodes = Array.from(graph.nodes()).sort();
   for (let [i, node] of sorted_nodes.entries()) {
     let node_data = graph.getNodeAttributes(node);
-    // var [theta, r] = get_frac(node_data.path);
-    // r = 1;
-    // graphologyLibrary.traversal.bfsFromNode(graph, node, function(node, attr, depth) {
-    //   r = Math.max(r, depth + 1);
-    // });
     var theta = i / sorted_nodes.length;
     var r = 1;
     node_data.x = 0.1*r * Math.cos(theta * 2 * Math.PI);
@@ -371,17 +424,16 @@ var render_gexf = (gexf) => {
     slowDown: 10,
     edgeWeightInfluence: 1,
     // Add filters to exclude hidden nodes and edges
-    filterNodes: node => !graph.getNodeAttribute(node, 'hidden'),
-    filterEdges: edge => !graph.getEdgeAttribute(edge, 'hidden')
+    filterNodes: node => true, // No filtering since nodes are actually removed
+    filterEdges: edge => true  // No filtering since edges are removed with nodes
   };
 
-  // run the optimizer without worker
+  // Run the optimizer without worker (fixed iterations)
   graphologyLibrary.layoutForceAtlas2.assign(graph, {
-    iterations: 10, // how many intereations at the start before pausing
+    iterations: 10, // how many iterations at the start before pausing
     settings: force_atlas_settings,
   });
 
-  // Set up continuous layout function
   let layoutInterval = null;
   
   function startLayout() {
@@ -404,12 +456,10 @@ var render_gexf = (gexf) => {
     }
   }
 
-  // Initial layout state
   if (!pause.checked) {
     startLayout();
   }
-
-  // Update pause checkbox handler
+  
   pause.addEventListener('change', (event) => {
     console.log("Pause state changed:", event.currentTarget.checked);
     if (event.currentTarget.checked) {
@@ -424,6 +474,9 @@ var render_gexf = (gexf) => {
     window.renderer.kill();
     delete window.renderer;
   }
+
+  window.showAllLabels = false;
+
   window.renderer = new Sigma.Sigma(graph, container, {
     defaultEdgeType: "arrow",
     defaultEdgeColor: "#c0c0c0",
@@ -432,33 +485,38 @@ var render_gexf = (gexf) => {
     nodeReducer: (node, data) => {
       var res = { ...data };
 
-      if (state.hoveredNode) {
-        if (state.hoveredNode === node) {
-          res.highlighted = true;
+      // Feature 2: Show all labels if flag is set
+      if (window.showAllLabels) {
+        res.label = res.label || ''; // Ensure label exists
+      } else {
+        if (state.hoveredNode) {
+          if (state.hoveredNode === node) {
+            res.highlighted = true;
+          }
+          if (state.hoveredDescendants.has(node)) {
+            res.zIndex = 2;
+          }
+          else if (state.hoveredAncestors.has(node)) {
+            res.color = res.dim_color;
+          }
+          else {
+            res.label = undefined;
+            res.color = res.very_dim_color;
+          }
         }
-        if (state.hoveredDescendants.has(node)) {
-          res.zIndex = 2;
+        else if (state.hoveredPath) {
+          if (data.path[0] == state.hoveredPath) {
+            res.zIndex = 2;
+          }
+          else {
+            res.label = undefined;
+            res.color = res.dim_color;
+          }
         }
-        else if (state.hoveredAncestors.has(node)) {
-          res.color = res.dim_color;
-        }
-        else {
-          res.label = undefined;
-          res.color = res.very_dim_color;
-        }
-      }
-      else if (state.hoveredPath) {
-        if (data.path[0] == state.hoveredPath) {
-          res.zIndex = 2;
-        }
-        else {
-          res.label = undefined;
-          res.color = res.dim_color;
-        }
-      }
-      else if (state.defaultNode) {
-        if (state.defaultNode === node) {
-          res.highlighted = true;
+        else if (state.defaultNode) {
+          if (state.defaultNode === node) {
+            res.highlighted = true;
+          }
         }
       }
 
@@ -472,15 +530,15 @@ var render_gexf = (gexf) => {
           res.size = 1.5;
         }
         else if (state.hoveredNode == graph.target(edge)) {
-          res.color = graph.getNodeAttributes(state.hoveredNode).dark_color;
+          res.color = graph.getNodeAttribute(state.hoveredNode).dark_color;
         }
         else {
           res.hidden = true;
         }
       }
       else if (state.hoveredPath) {
-        let src = graph.getNodeAttributes(graph.source(edge));
-        let target = graph.getNodeAttributes(graph.target(edge));
+        let src = graph.getNodeAttribute(graph.source(edge));
+        let target = graph.getNodeAttribute(graph.target(edge));
         if (src.path[0] == state.hoveredPath && target.path[0] == state.hoveredPath) {
           res.color = get_color({path: [state.hoveredPath]}, 1, 0.4);
         }
@@ -515,12 +573,12 @@ var render_gexf = (gexf) => {
       state.hoveredPath = top_level;
       let nfiles = 0;
       let ndecls = 0;
-      for (let [n, node_data] of graph.nodeEntries()) {
-        if (node_data.path[0] == top_level) {
+      graph.forEachNode((node, attrs) => {
+        if (attrs.path[0] == top_level) {
           nfiles += 1;
-          ndecls += node_data.decl_count;
+          ndecls += attrs.decl_count;
         }
-      }
+      });
       setStatus("Highlighting " + nfiles + " files consisting of "+ndecls+" declarations");
       renderer.refresh();
     });
@@ -532,7 +590,7 @@ var render_gexf = (gexf) => {
     });
   }
 
-  // Bind graph interactions:
+
   let setHoveredNode = function(node) {
     if (node) {
       state.hoveredNode = node;
@@ -558,10 +616,11 @@ var render_gexf = (gexf) => {
       container.style.cursor = "inherit";
     }
 
+    updateLabelVisibility(graph, renderer);
+
     renderer.refresh();
   }
   
-  // Add state for frozen highlight and tracking
   let isFrozen = false;
   let frozenNode = null;
   let currentHoveredNode = null;
@@ -581,15 +640,16 @@ var render_gexf = (gexf) => {
   
   renderer.on("leaveNode", (event) => { 
     if (isFrozen) {
-      // When frozen: maintain the hover state on frozenNode
       state.hoveredNode = frozenNode;
       event.preventSigmaDefault();
     } else {
-      // When not frozen: let setHoveredNode handle all state
       currentHoveredNode = null;
       setHoveredNode(default_hover ? state.defaultNode : undefined);
     }
     console.log('LEAVE: isFrozen:', isFrozen, 'frozenNode:', frozenNode);
+
+    // After leaving node, update label visibility
+    updateLabelVisibility(graph, renderer);
   });
 
   // Clear frozen state when shift is released
@@ -618,44 +678,61 @@ var render_gexf = (gexf) => {
     window.open(docs_url + path.join('/') + ".html");
   });
 
-  // Add toggle button handler
   toggleButton.textContent = 'Hide All Nodes';  // Initial text
   
   toggleButton.addEventListener('click', () => {
     const allSelected = Object.values(areaSelected).every(state => state);
     
-    // Toggle all areas
-    for (let area in areaSelected) {
-      areaSelected[area] = !allSelected;
-      keyElems.get(area).style.fontWeight = allSelected ? 'normal' : 'bold';
+    if (allSelected) {
+      // Hide all visible areas
+      for (let area in areaSelected) {
+        if (areaSelected[area]) {
+          // Hide nodes in this area
+          let nodesToHide = Array.from(graph.nodes()).filter(node => {
+            let nodePath = graph.getNodeAttribute(node, 'path');
+            return nodePath && nodePath[0] === area;
+          });
+          hideNodes(nodesToHide, graph);
+          // Update selection state
+          areaSelected[area] = false;
+          keyElems.get(area).style.fontWeight = 'normal';
+        }
+      }
+      toggleButton.textContent = 'Show All Nodes';
+    } else {
+      // Show all hidden areas
+      for (let area in areaSelected) {
+        if (!areaSelected[area]) {
+          // Show nodes in this area
+          let nodesToShow = Object.keys(hiddenNodes).filter(node => {
+            let nodePath = hiddenNodes[node].attributes.path;
+            return nodePath && nodePath[0] === area;
+          });
+          showNodes(nodesToShow, graph);
+          // Update selection state
+          areaSelected[area] = true;
+          keyElems.get(area).style.fontWeight = 'bold';
+        }
+      }
+      toggleButton.textContent = 'Hide All Nodes';
     }
-    
-    // Update button text
-    toggleButton.textContent = allSelected ? 'Show All Nodes' : 'Hide All Nodes';
-    
-    // Update graph visibility
-    graph.forEachNode((node, attrs) => {
-      const isVisible = areaSelected[attrs.path[0]];
-      graph.setNodeAttribute(node, 'hidden', !isVisible);
-    });
-    
-    graph.forEachEdge((edge, attrs, source, target) => {
-      const sourceVisible = !graph.getNodeAttribute(source, 'hidden');
-      const targetVisible = !graph.getNodeAttribute(target, 'hidden');
-      graph.setEdgeAttribute(edge, 'hidden', !(sourceVisible && targetVisible));
-    });
-    
+
+    // Update label visibility based on the new number of visible nodes
+    updateLabelVisibility(graph, renderer);
+
     renderer.refresh();
   });
 
-  // Hide nodes from hidden areas in the graph
+  updateLabelVisibility(graph, renderer);
+
+
+  /*
   graph.forEachNode((node, attrs) => {
     if (attrs && attrs.path && HIDDEN_AREAS.includes(attrs.path[0])) {
       graph.setNodeAttribute(node, 'hidden', true);
     }
   });
 
-  // Hide edges connected to hidden nodes
   graph.forEachEdge((edge, attrs, source, target) => {
     const sourcePath = graph.getNodeAttribute(source, 'path');
     const targetPath = graph.getNodeAttribute(target, 'path');
@@ -668,12 +745,15 @@ var render_gexf = (gexf) => {
       }
     }
   });
+  */
+
 };
 
 fetch(docs_url + "import.gexf").then((res) => res.text()).then(render_gexf);
 
+// Handle drag-and-drop for loading new GEXF files
 container.addEventListener("dragover",  ev => {
-  event.preventDefault();
+  ev.preventDefault();
 });
 container.addEventListener('drop', ev => {
   ev.preventDefault();
