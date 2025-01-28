@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <title>Mathlib import graph</title>
 
-  <!-- Sigma / Graphology libraries -->
   <script src="vendor/sigma.min.js"></script>
   <script src="vendor/graphology.min.js"></script>
   <script src="vendor/graphology-library.min.js"></script>
@@ -39,7 +38,6 @@
       columns: 10em auto;
     }
 
-    /* Text shadow so overlays remain readable. */
     .summary, .key-wrapper {
       text-shadow:
          0 0 5px white,
@@ -120,11 +118,9 @@
   </div>
 
   <script type="text/javascript">
-    // Default docs_url for fetching import.gexf, or user-provided via URL params
     var params = new URLSearchParams(window.location.search);
     var docs_url = params.get("docs_url") || "https://leanprover-community.github.io/mathlib_docs/";
 
-    // Areas to always hide or remove (if relevant)
     const HIDDEN_AREAS = [
       'init','girard','wiedijk_100_theorems','data','map_floor','system','tactic','testing',
       'phillips','meta','deprecated','examples','cyclotomic_105','arithcc','char_p_zero_ne_char_zero',
@@ -133,7 +129,6 @@
       'seminorm_lattice_not_distrib','zero_divisors_in_add_monoid_algebras'
     ];
 
-    // We'll store the original GEXF so we can restore later
     let originalGexf = null;
 
     // Basic color function: HSL -> RGB
@@ -158,7 +153,6 @@
       return [Math.round(r*255), Math.round(g*255), Math.round(b*255)];
     }
 
-    // Return number of shared prefix elements
     function common_prefix(a, b) {
       for (var i = 0; i < Math.min(a.length, b.length); i++) {
         if (a[i] !== b[i]) return i;
@@ -166,7 +160,6 @@
       return Math.min(a.length, b.length);
     }
 
-    // Start ForceAtlas2 layout with an interval so it keeps moving
     function startLayout(graph, force_atlas_settings) {
       let layoutInterval = setInterval(() => {
         graphologyLibrary.layoutForceAtlas2.assign(graph, {
@@ -177,15 +170,11 @@
       }, 50);
       return layoutInterval;
     }
-
-    // Our main render function
+//ai graph fix (need to find out why it prod sq shape and why it is slightly diff each time)
     function render_gexf(gexf) {
-      // Parse the GEXF
       let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
-      // Reverse graph for BFS ancestors
       let rev_graph = graphologyLibrary.operators.reverse(graph);
 
-      // Basic interaction/hover state
       var state = {
         hoveredNode: undefined,
         hoveredDescendants: undefined,
@@ -194,14 +183,12 @@
       };
       var default_hover = !!params.get("default_hover");
 
-      // Convert node names into data (proj / path)
       graph.forEachNode((node, node_data) => {
         let [proj, path_str] = node.split(':');
         node_data.proj = proj;
         node_data.path = path_str.split('.');
       });
 
-      // Build directory tree for top-level keys
       let tree = new Map();
       graph.forEachNode((node, node_data) => {
         let at = tree;
@@ -211,7 +198,6 @@
         }
       });
 
-      // Keep track of top-level area selection (excluding hidden areas)
       var areaSelected = {};
       for (let area of tree.keys()) {
         if (!HIDDEN_AREAS.includes(area)) {
@@ -219,12 +205,10 @@
         }
       }
 
-      // Clear existing key items
       let key = document.getElementById('key');
       while(key.firstChild) key.removeChild(key.lastChild);
       var keyElems = new Map();
 
-      // Fraction for color assignment
       function get_frac(path) {
         var pos = 0, width = 1, at = tree;
         for (let [i, p] of path.entries()) {
@@ -254,7 +238,6 @@
         sp.style.backgroundColor = get_color({path: [top_level]});
         sp.style.borderColor = get_color({path: [top_level]}, 1, 0.4);
 
-        // "Remove" button for dropping all nodes in that area
         let removeBtn = document.createElement('button');
         removeBtn.textContent = 'Remove';
         removeBtn.style.marginLeft = '8px';
@@ -269,14 +252,10 @@
         keyElems.set(top_level, li);
       }
 
-      // If it's there, remove "core:init.default" (only if it truly exists)
       if (graph.hasNode('core:init.default')) {
         graph.dropNode('core:init.default');
       }
 
-      // IMPORTANT: If you want to keep only mathlib nodes, check that they exist
-      // If your GEXF doesn't actually have "mathlib", removing everything is a problem!
-      // For safety, let's only drop non-mathlib if we find at least one real "mathlib" node:
       let mathlibNodesCount = 0;
       graph.forEachNode((node, attrs) => {
         if (attrs.proj === 'mathlib') mathlibNodesCount++;
@@ -326,7 +305,6 @@
         }
       });
 
-      // Set up Force Atlas 2
       let force_atlas_settings = {
         barnesHutOptimize: false,
         strongGravityMode: false,
@@ -338,15 +316,13 @@
         filterEdges: edge => !graph.getEdgeAttribute(edge, 'hidden')
       };
 
-      // Start layout
+      // Start layout (note: see how this initial layout works - why is it prod. slightly different graphs each time?)
       let layoutInterval = startLayout(graph, force_atlas_settings);
 
-      // Remove any old renderer
       if (window.renderer) {
         window.renderer.kill();
       }
 
-      // Create Sigma renderer
       window.renderer = new Sigma.Sigma(graph, document.getElementById('sigma-example'), {
         defaultEdgeType: "arrow",
         defaultEdgeColor: "#c0c0c0",
@@ -356,7 +332,6 @@
         edgeReducer: (edge, data) => data
       });
 
-      // Button to restore the entire graph from the original GEXF
       let restoreAllBtn = document.getElementById('restoreAll');
       restoreAllBtn.onclick = () => {
         clearInterval(layoutInterval);
@@ -366,7 +341,6 @@
         }
       };
 
-      // "Hide All Nodes" button
       let toggleAllBtn = document.getElementById('toggleAll');
       toggleAllBtn.onclick = () => {
         // If any node is still visible, hide them; otherwise show them
@@ -404,27 +378,23 @@
         }
       };
 
-      // Set up button logic for "Remove" next to each area name
       keyElems.forEach((li, top_level) => {
         let removeButton = li.querySelector('button');
         if (!removeButton) return;
 
         removeButton.addEventListener('click', e => {
-          e.stopPropagation(); // Don’t also toggle hidden
+          e.stopPropagation();
           let nodesToRemove = [];
           graph.forEachNode((node, attrs) => {
             if (attrs.path[0] === top_level) {
               nodesToRemove.push(node);
             }
           });
-          // Drop those nodes
           nodesToRemove.forEach(node => graph.dropNode(node));
           window.renderer.refresh();
         });
 
-        // Toggle "hidden" on click of the area label (li)
         li.addEventListener('click', event => {
-          // Don’t run if user specifically clicked "Remove"
           if (event.target === removeButton) {
             return;
           }
@@ -448,7 +418,6 @@
         });
       });
 
-      // Example BFS to get descendants/ancestors on hover
       let setHoveredNode = function(node) {
         if (!node) {
           state.hoveredNode = undefined;
@@ -464,12 +433,11 @@
         let ancestors = new Set();
         let ndecls = 0;
 
-        // BFS forward
+        // f
         graphologyLibrary.traversal.bfsFromNode(graph, node, function(n, attr, depth) {
           descendants.add(n);
           ndecls += (graph.getNodeAttribute(n, 'decl_count') || 0);
         });
-        // BFS backward
         graphologyLibrary.traversal.bfsFromNode(rev_graph, node, function(n, attr, depth) {
           ancestors.add(n);
         });
@@ -530,14 +498,8 @@
         }
       });
 
-      // Debugging: log final node count
-      console.log("Node count after filtering/dropping: ", graph.order);
-      if (graph.order === 0) {
-        console.warn("No nodes remain! Check if your GEXF has 'mathlib' nodes or revise the dropping logic.");
-      }
     }
 
-    // Load GEXF from docs_url
     fetch(docs_url + "import.gexf")
       .then(res => res.text())
       .then(gexf => {
@@ -545,7 +507,6 @@
         render_gexf(gexf);
       });
 
-    // Support drag/drop for GEXF
     let container = document.getElementById('sigma-example');
     container.addEventListener("dragover",  ev => {
       ev.preventDefault();
