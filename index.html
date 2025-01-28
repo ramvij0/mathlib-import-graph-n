@@ -1,492 +1,688 @@
-
 <!doctype html>
 <html class="no-js" lang="en">
 <head>
-<meta charset="utf-8">
+  <meta charset="utf-8">
 
-<title>Mathlib import graph</title>
+  <title>Mathlib import graph</title>
 
-<script src="vendor/sigma.min.js"></script>
-<script src="vendor/graphology.min.js"></script>
-<script src="vendor/graphology-library.min.js"></script>
+  <script src="vendor/sigma.min.js"></script>
+  <script src="vendor/graphology.min.js"></script>
+  <script src="vendor/graphology-library.min.js"></script>
 
-<link rel="stylesheet" href="style.css" />
-<style>
-html, body {
-height: 100%; width: 100%;
-margin: 0;
-padding: 0;
-position: relative;
-}
-.sigma {
-position: absolute;
-width: 100%;
-height: 100%;
-top: 0;
-left: 0;
-overflow: hidden;
-}
-p, label, .summary {
-text-align: center;
-}
-.summary {
-position: absolute;
-top: 0;
-left: 0;
-right: 0;
-}
-.key-wrapper {
-position: absolute;
-bottom: 0;
-left: 0;
-right: 0;
-}
-#key {
-list-style: none;
-columns: 10em auto;
-}
-.summary, .key-wrapper {
-text-shadow:
-0    0   5px white,
--1px -1px 0 white,
-0   -1px 0 white,
-1px -1px 0 white,
-1px  0   0 white,
-1px  1px 0 white,
-0    1px 0 white,
--1px  1px 0 white,
--1px  0   0 white;
-}
+  <style>
+    html, body {
+      height: 100%; width: 100%;
+      margin: 0;
+      padding: 0;
+      position: relative;
+    }
+    .sigma {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      overflow: hidden;
+    }
+    p, label, .summary {
+      text-align: center;
+    }
+    .summary {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+    }
+    .key-wrapper {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+    }
+    #key {
+      list-style: none;
+      columns: 10em auto;
+    }
+    .summary, .key-wrapper {
+      text-shadow:
+         0    0   5px white,
+        -1px -1px 0 white,
+         0   -1px 0 white,
+         1px -1px 0 white,
+         1px  0   0 white,
+         1px  1px 0 white,
+         0    1px 0 white,
+        -1px  1px 0 white,
+        -1px  0   0 white;
+      }
 
-ul > li {
-white-space: nowrap;
-}
-ul > li:hover {
-font-weight: bold;
-}
+    ul > li {
+      white-space: nowrap;
+    }
+    ul > li:hover {
+      font-weight: bold;
+    }
 
-#key > li > span {
-width: 1ch;
-height: 1ch;
-display: inline-block;
-margin-right: 0.25em;
-border: 1px solid gray;
-margin-bottom: -1px
-}
+    #key > li > span {
+      width: 1ch;
+      height: 1ch;
+      display: inline-block;
+      margin-right: 0.25em;
+      border: 1px solid gray;
+      margin-bottom: -1px
+    }
 
-.status.active .placeholder {
-visibility: hidden;
-}
-.status {
-position: relative;
-}
-.status .message {
-position: absolute;
-top: 0;
-bottom: 0;
-width: 100%;
-text-align: center;
-}
-</style>
+    .status.active .placeholder {
+      visibility: hidden;
+    }
+    .status {
+      position: relative;
+    }
+    .status .message {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 100%;
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
-<div class="sigma" id="sigma-example"></div>
-<div class="summary">
-<p>A visualization of the import graph of <a href="https://github.com/leanprover-community/mathlib">Lean's Mathlib</a>, built with <a href="https://www.sigmajs.org/">Sigma.js</a>.
-Node sizes indicate the number of declarations in the file.</p>
+  <div class="sigma" id="sigma-example"></div>
+  <div class="summary">
+    <p>A visualization of the import graph of <a href="https://github.com/leanprover-community/mathlib">Lean's Mathlib</a>, built with <a href="https://www.sigmajs.org/">Sigma.js</a>.
+    Node sizes indicate the number of declarations in the file.</p>
 
-<label><input type="checkbox" id="pause" checked/> Pause graph layout</label>
-</div>
-<div class="key-wrapper">
-<ul id="key"></ul>
-<div class="status" id="statusWrapper">
-<p class="placeholder">Hover over a node to show only the files it imports. Hover over a directory name to highlight only the files in that directory</p>
-<div class="message" id="statusMessage"></div>
-</div>
-</div>
+    <label><input type="checkbox" id="pause" checked/> Pause graph layout</label>
+  </div>
+  <div class="key-wrapper">
+    <button id="toggleAll">Hide All Nodes</button>
+    <ul id="key"></ul>
+    <div class="status" id="statusWrapper">
+      <p class="placeholder">Hover over a node to show only the files it imports. Hover over a directory name to highlight only the files in that directory.</p>
+      <p><b><font style="color:magenta">Click on a directory/area to hide/show all nodes in that directory/area. Use Shift while hovering over a node to freeze a subgraph.</font></b>
+      </p>
+      <div class="message" id="statusMessage"></div>
+    </div>
+  </div>
 
 <script type="text/javascript">
-
+  
 var params = new URLSearchParams(window.location.search);
 var docs_url = params.get("docs_url") || "https://leanprover-community.github.io/mathlib_docs/";
 
+// Configuration
+const HIDDEN_AREAS = ['init', 'girard', 'wiedijk_100_theorems', 'data', 'map_floor', 'system', 'tactic', 'testing', 'phillips', 'meta', 'deprecated', 'examples', 'cyclotomic_105', 'arithcc', 'char_p_zero_ne_char_zero', 'canonically_ordered_comm_semiring_two_mul','miu_language',  'direct_sum_is_internal', 'imo', 'homogeneous_prime_not_prime', 'linear_order_with_pos_mul_pos_eq_zero', 'oxford_invariants', 'seminorm_lattice_not_distrib', 'zero_divisors_in_add_monoid_algebras'];  // Areas to always hide
+// core, mathlib-archive, mathlib-counterexamples are always dropped since they do not start with `mathlib`
+
 // From stackoverflow
 /**
-* Converts an HSL color value to RGB. Conversion formula
-* adapted from http://en.wikipedia.org/wiki/HSL_color_space.
-* Assumes h, s, and l are contained in the set [0, 1] and
-* returns r, g, and b in the set [0, 255].
-*
-* @param   {number}  h       The hue
-* @param   {number}  s       The saturation
-* @param   {number}  l       The lightness
-* @return  {Array}           The RGB representation
-*/
+ * Converts an HSL color value to RGB. Conversion formula
+ * adapted from http://en.wikipedia.org/wiki/HSL_color_space.
+ * Assumes h, s, and l are contained in the set [0, 1] and
+ * returns r, g, and b in the set [0, 255].
+ *
+ * @param   {number}  h       The hue
+ * @param   {number}  s       The saturation
+ * @param   {number}  l       The lightness
+ * @return  {Array}           The RGB representation
+ */
 function hslToRgb(h, s, l){
-var r, g, b;
+  var r, g, b;
 
-if(s == 0){
-r = g = b = l; // achromatic
-} else{
-var hue2rgb = function hue2rgb(p, q, t){
-if(t < 0) t += 1;
-if(t > 1) t -= 1;
-if(t < 1/6) return p + (q - p) * 6 * t;
-if(t < 1/2) return q;
-if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-return p;
-}
+  if(s == 0){
+    r = g = b = l; // achromatic
+  } else{
+    var hue2rgb = function hue2rgb(p, q, t){
+      if(t < 0) t += 1;
+      if(t > 1) t -= 1;
+      if(t < 1/6) return p + (q - p) * 6 * t;
+      if(t < 1/2) return q;
+      if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    }
 
-var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-var p = 2 * l - q;
-r = hue2rgb(p, q, h + 1/3);
-g = hue2rgb(p, q, h);
-b = hue2rgb(p, q, h - 1/3);
-}
+    var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    var p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1/3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1/3);
+  }
 
-return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
 }
 
 var common_prefix = function(a, b) {
-for (var i = 0; i < Math.min(a.length, b.length); i++) {
-if (a[i] != b[i]) break;
-}
-return i;
+  for (var i = 0; i < Math.min(a.length, b.length); i++) {
+    if (a[i] != b[i]) break;
+  }
+  return i;
 }
 
+// Get DOM elements
 let container = document.getElementById('sigma-example');
 let key = document.getElementById('key');
 let pause = document.getElementById('pause');
+const toggleButton = document.getElementById('toggleAll');
 
 var render_gexf = (gexf) => {
-let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
-let rev_graph = graphologyLibrary.operators.reverse(graph);
+  let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
+  
+  let rev_graph = graphologyLibrary.operators.reverse(graph);
 
-// interaction state
-var state = {
-hoveredNode: undefined,
-hoveredDescendants: undefined,
-hoveredPath: undefined,
-defaultNode: params.get("highlight"),
-};
-var default_hover = !!params.get("default_hover");
+  // interaction state
+  var state = {
+    hoveredNode: undefined,
+    hoveredDescendants: undefined,
+    hoveredPath: undefined,
+    defaultNode: params.get("highlight"),
+  };
+  var default_hover = !!params.get("default_hover");
 
-// unpack the node labels into data
-for (let [node, node_data] of graph.nodeEntries()) {
-let [proj, path_str] = node.split(':');
-node_data.proj = proj;
-node_data.path = path_str.split('.');
-}
+  // unpack the node labels into data
+  for (let [node, node_data] of graph.nodeEntries()) {
+    let [proj, path_str] = node.split(':');
+    node_data.proj = proj;
+    node_data.path = path_str.split('.');
+  }
 
-// represent the directory tree as a nested map
-var tree = new Map();
-for (let [node, node_data] of graph.nodeEntries()) {
-var at = tree;
-for (let p of node_data.path) {
-var curr = at.get(p);
-if (!curr) {
-curr = new Map();
-at.set(p, curr);
-}
-at = curr;
-}
-}
+  // Build directory tree (including hidden areas)
+  var tree = new Map();
+  for (let [node, node_data] of graph.nodeEntries()) {
+    var at = tree;
+    for (let p of node_data.path) {
+      var curr = at.get(p);
+      if (!curr) {
+        curr = new Map();
+        at.set(p, curr);
+      }
+      at = curr;
+    }
+  }
 
-// return [f, depth] where f is in [0, 1) and corresponds to some measure
-// of order within the heirarchy.
-var get_frac = function (path, max_depth=Infinity) {
-var pos = 0;
-var width = 1;
-var at = tree;
-for (let [i, p] of path.entries()) {
-var key_arr = Array.from(at.keys()).sort();
-width /= key_arr.length;
-var ind = key_arr.indexOf(p);
-if (ind == -1) {
-pos = NaN;
-break;
-}
-pos += width * ind;
-if (i >= max_depth) {
-break;
-}
-at = at.get(p);
-}
-return [pos, path.length];
-};
+  // Log all areas in the tree
+  console.log("All areas in tree:", Array.from(tree.keys()).sort());
+  console.log("Hidden areas:", HIDDEN_AREAS);
+  console.log("Visible areas:", Array.from(tree.keys())
+    .filter(area => !HIDDEN_AREAS.includes(area))
+    .sort());
 
-var get_color = function (node_data, s=1, l=0.5) {
-var [h, d] = get_frac(node_data.path, 0);
-var [r, g, b] = hslToRgb(h, s, l);
-return 'rgb(' + [r, g, b].join(',') + ')'
-};
+  // Initialize area selection (excluding hidden areas)
+  var areaSelected = {};
+  for (let area of tree.keys()) {
+    if (!HIDDEN_AREAS.includes(area)) {
+      areaSelected[area] = true;
+    }
+  }
 
-// build the key
-while(key.firstChild) key.removeChild(key.lastChild);
-var keyElems = new Map();
-for (let top_level of Array.from(tree.keys()).sort()) {
-var li = document.createElement('li');
-var sp = document.createElement('span');
-sp.style.backgroundColor = get_color({path: [top_level]});
-sp.style.borderColor = get_color({path: [top_level]}, 1, 0.4);
-li.appendChild(sp);
-li.appendChild(document.createTextNode(top_level));
-key.appendChild(li);
-keyElems.set(top_level, li);
-}
+  // Build key list (excluding hidden areas)
+  while(key.firstChild) key.removeChild(key.lastChild);
+  var keyElems = new Map();
+  
+  // return [f, depth] where f is in [0, 1) and corresponds to some measure
+  // of order within the heirarchy.
+  var get_frac = function (path, max_depth=Infinity) {
+    var pos = 0;
+    var width = 1;
+    var at = tree;
+    for (let [i, p] of path.entries()) {
+      var key_arr = Array.from(at.keys()).sort();
+      width /= key_arr.length;
+      var ind = key_arr.indexOf(p);
+      if (ind == -1) {
+        pos = NaN;
+        break;
+      }
+      pos += width * ind;
+      if (i >= max_depth) {
+        break;
+      }
+      at = at.get(p);
+    }
+    return [pos, path.length];
+  };
 
-// remove the node that's connected to everything!
-graph.dropNode('core:init.default');
+  var get_color = function (node_data, s=1, l=0.5) {
+    var [h, d] = get_frac(node_data.path, 0);
+    var [r, g, b] = hslToRgb(h, s, l);
+    return 'rgb(' + [r, g, b].join(',') + ')'
+  };
 
-// remove the `mathlib` prefix
-for (let [node, node_data] of graph.nodeEntries()) {
-if (node_data.proj == 'mathlib') {
-node_data.label = node_data.path.join('.');
-}
-}
+  // Build key from top-level entries in tree
+  for (let top_level of Array.from(tree.keys()).sort()) {
+    if (HIDDEN_AREAS.includes(top_level)) continue;  // Skip hidden areas in key list
+    
+    var li = document.createElement('li');
+    var sp = document.createElement('span');
+    sp.style.backgroundColor = get_color({path: [top_level]});
+    sp.style.borderColor = get_color({path: [top_level]}, 1, 0.4);
+    li.appendChild(sp);
+    li.appendChild(document.createTextNode(top_level));
+    
+    // Set initial bold style since all are selected
+    li.style.fontWeight = 'bold';
+    
+    key.appendChild(li);
+    keyElems.set(top_level, li);
+  }
 
-// color the nodes
-for (let [node, node_data] of graph.nodeEntries()) {
-graph.setNodeAttribute(node, 'color', get_color(node_data));
-graph.setNodeAttribute(node, 'dark_color', get_color(node_data, 1, 0.4));
-graph.setNodeAttribute(node, 'dim_color', get_color(node_data, 0.5, 7/8));
-graph.setNodeAttribute(node, 'very_dim_color', get_color(node_data, 0.5, 15/16));
-}
+  // Then add click handlers to all list items
+  keyElems.forEach((li, top_level) => {
+    li.addEventListener('click', (event) => {
+      console.log('Before click:', {
+        area: top_level,
+        state: areaSelected[top_level],
+        fontWeight: li.style.fontWeight
+      });
+      
+      // Toggle this area
+      areaSelected[top_level] = !areaSelected[top_level];
+      const listItem = keyElems.get(top_level);
+      listItem.style.fontWeight = areaSelected[top_level] ? 'bold' : 'normal';
+      
+      console.log('After click:', {
+        area: top_level,
+        state: areaSelected[top_level],
+        fontWeight: listItem.style.fontWeight
+      });
+      
+      // Update graph visibility
+      graph.forEachNode((node, attrs) => {
+        const isVisible = areaSelected[attrs.path[0]];
+        graph.setNodeAttribute(node, 'hidden', !isVisible);
+      });
+      
+      graph.forEachEdge((edge, attrs, source, target) => {
+        const sourceVisible = !graph.getNodeAttribute(source, 'hidden');
+        const targetVisible = !graph.getNodeAttribute(target, 'hidden');
+        graph.setEdgeAttribute(edge, 'hidden', !(sourceVisible && targetVisible));
+      });
+      
+      renderer.refresh();
+    });
+  });
 
-//size the nodes
-for (let [node, node_data] of graph.nodeEntries()) {
-node_data.size = 2 + Math.sqrt(node_data.decl_count) / 5;
-}
+  // remove the node that's connected to everything!
+  graph.dropNode('core:init.default');
 
-// set up the edge weights, to make the layout somewhat ok
-for (let [key, attrs, s, t, sdata, tdata] of graph.edgeEntries()) {
-var ncommon = common_prefix(sdata.path, tdata.path);
-if (sdata.proj != tdata.proj) {
-attrs.weight = 1
-}
-else if (ncommon == 0) {
-attrs.weight = 2;
-}
-else if (ncommon == 1) {
-attrs.weight = 4;
-}
-else {
-attrs.weight = 8;
-}
-// attrs.weight = (sdata.proj == tdata.proj) * Math.pow(5, ncommon) + 1;
-}
+  // remove the `mathlib` prefix
+  for (let [node, node_data] of graph.nodeEntries()) {
+    //console.log(node_data.proj);
+    if (node_data.proj == 'mathlib') {
+      node_data.label = node_data.path.join('.');
+    }
+    else{
+      graph.dropNode(node); // remove non-mathlib nodes
+    }
+  }
 
-// pick a somewhat arbitrary initial layout
-let sorted_nodes = Array.from(graph.nodes()).sort();
-for (let [i, node] of sorted_nodes.entries()) {
-let node_data = graph.getNodeAttributes(node);
-// var [theta, r] = get_frac(node_data.path);
-// r = 1;
-// graphologyLibrary.traversal.bfsFromNode(graph, node, function(node, attr, depth) {
-//   r = Math.max(r, depth + 1);
-// });
-var theta = i / sorted_nodes.length;
-var r = 1;
-node_data.x = 0.1*r * Math.cos(theta * 2 * Math.PI);
-node_data.y = 0.1*r * Math.sin(theta * 2 * Math.PI);
-}
+  // color the nodes
+  for (let [node, node_data] of graph.nodeEntries()) {
+    graph.setNodeAttribute(node, 'color', get_color(node_data));
+    graph.setNodeAttribute(node, 'dark_color', get_color(node_data, 1, 0.4));
+    graph.setNodeAttribute(node, 'dim_color', get_color(node_data, 0.5, 7/8));
+    graph.setNodeAttribute(node, 'very_dim_color', get_color(node_data, 0.5, 15/16));
+  }
 
-var force_atlas_settings = {
-barnesHutOptimize: false,
-strongGravityMode: false,
-gravity: 0.05,
-scalingRatio: 10,
-slowDown: 10,
-edgeWeightInfluence: 1,
-};
+  //size the nodes
+  for (let [node, node_data] of graph.nodeEntries()) {
+    node_data.size = 2 + Math.sqrt(node_data.decl_count) / 5;
+  }
 
-// run the optimizer a little
-graphologyLibrary.layoutForceAtlas2.assign(graph, {
-iterations: 10,
-settings: force_atlas_settings,
-});
+  // set up the edge weights, to make the layout somewhat ok
+  for (let [key, attrs, s, t, sdata, tdata] of graph.edgeEntries()) {
+    var ncommon = common_prefix(sdata.path, tdata.path);
+    if (sdata.proj != tdata.proj) {
+      attrs.weight = 1
+    }
+    else if (ncommon == 0) {
+      attrs.weight = 2;
+    }
+    else if (ncommon == 1) {
+      attrs.weight = 4;
+    }
+    else {
+      attrs.weight = 8;
+    }
+    // attrs.weight = (sdata.proj == tdata.proj) * Math.pow(5, ncommon) + 1;
+  }
 
-// now send it to a background task
-var worker = new graphologyLibrary.FA2Layout(graph, {
-settings: force_atlas_settings,
-});
+  // pick a somewhat arbitrary initial layout
+  let sorted_nodes = Array.from(graph.nodes()).sort();
+  for (let [i, node] of sorted_nodes.entries()) {
+    let node_data = graph.getNodeAttributes(node);
+    // var [theta, r] = get_frac(node_data.path);
+    // r = 1;
+    // graphologyLibrary.traversal.bfsFromNode(graph, node, function(node, attr, depth) {
+    //   r = Math.max(r, depth + 1);
+    // });
+    var theta = i / sorted_nodes.length;
+    var r = 1;
+    node_data.x = 0.1*r * Math.cos(theta * 2 * Math.PI);
+    node_data.y = 0.1*r * Math.sin(theta * 2 * Math.PI);
+  }
 
-if (!pause.checked) {
-worker.start();
-}
+  // Force Atlas 2 settings
+  var force_atlas_settings = {
+    barnesHutOptimize: false,
+    strongGravityMode: false,
+    gravity: 0.05,
+    scalingRatio: 10,
+    slowDown: 10,
+    edgeWeightInfluence: 1,
+    // Add filters to exclude hidden nodes and edges
+    filterNodes: node => !graph.getNodeAttribute(node, 'hidden'),
+    filterEdges: edge => !graph.getEdgeAttribute(edge, 'hidden')
+  };
 
-pause.addEventListener('change', (event) => {
-if (event.currentTarget.checked) {
-worker.stop();
-} else {
-worker.start();
-}
-});
+  // run the optimizer without worker
+  graphologyLibrary.layoutForceAtlas2.assign(graph, {
+    iterations: 10, // how many intereations at the start before pausing
+    settings: force_atlas_settings,
+  });
 
-window.graph = graph;
-if (window.renderer) {
-window.renderer.kill();
-delete window.renderer;
-}
-window.renderer = new Sigma.Sigma(graph, container, {
-defaultEdgeType: "arrow",
-defaultEdgeColor: "#c0c0c0",
-minArrowSize: 30,
-zIndex: true,
-nodeReducer: (node, data) => {
-var res = { ...data };
+  // Set up continuous layout function
+  let layoutInterval = null;
+  
+  function startLayout() {
+    console.log("Starting continuous layout");
+    layoutInterval = setInterval(() => {
+      console.log("Running layout iteration");
+      graphologyLibrary.layoutForceAtlas2.assign(graph, {
+        iterations: 1,
+        settings: force_atlas_settings,
+      });
+      renderer.refresh();
+    }, 50);
+  }
 
-if (state.hoveredNode) {
-if (state.hoveredNode === node) {
-          graph.dropNode(node);
-}
-        
-if (state.hoveredDescendants.has(node)) {
-}
-else if (state.hoveredAncestors.has(node)) {
-graph.dropNode(node);
-}
-else {
-res.label = undefined;
-res.highlighted = true;
-}
-}
-else if (state.hoveredPath) {
-if (data.path[0] == state.hoveredPath) {
-res.zIndex = 2;
-}
-else {
-res.label = undefined;
-res.color = res.dim_color;
-}
-}
-else if (state.defaultNode) {
-if (state.defaultNode === node) {
-res.highlighted = true;
-}
-}
+  function stopLayout() {
+    console.log("Stopping layout");
+    if (layoutInterval) {
+      clearInterval(layoutInterval);
+      layoutInterval = null;
+    }
+  }
 
-return res;
-},
-edgeReducer: (edge, data) => {
-var res = { ...data };
+  // Initial layout state
+  if (!pause.checked) {
+    startLayout();
+  }
 
-if (state.hoveredNode) {
-if (state.hoveredDescendants.has(graph.source(edge))) {
-res.color = res.very_dim_color;
-}
-else if (state.hoveredNode == graph.target(edge)) {
-res.color = graph.getNodeAttributes(state.hoveredNode).dark_color;
-}
-else {
-res.hidden = false;
-}
-}
-else if (state.hoveredPath) {
-let src = graph.getNodeAttributes(graph.source(edge));
-let target = graph.getNodeAttributes(graph.target(edge));
-if (src.path[0] == state.hoveredPath && target.path[0] == state.hoveredPath) {
-res.color = get_color({path: [state.hoveredPath]}, 1, 0.4);
-}
-else if (src.path[0] == state.hoveredPath) {
-res.color = "#808080";
-}
-else {
-res.color = "#E0E0E0"
-}
-}
+  // Update pause checkbox handler
+  pause.addEventListener('change', (event) => {
+    console.log("Pause state changed:", event.currentTarget.checked);
+    if (event.currentTarget.checked) {
+      stopLayout();
+    } else {
+      startLayout();
+    }
+  });
 
-return res;
-},
-});
+  window.graph = graph;
+  if (window.renderer) {
+    window.renderer.kill();
+    delete window.renderer;
+  }
+  window.renderer = new Sigma.Sigma(graph, container, {
+    defaultEdgeType: "arrow",
+    defaultEdgeColor: "#c0c0c0",
+    minArrowSize: 30,
+    zIndex: true,
+    nodeReducer: (node, data) => {
+      var res = { ...data };
 
-let statusElem = document.getElementById('statusWrapper');
-let statusMsgElem = document.getElementById('statusMessage');
-let setStatus = function(html) {
-if (html) {
-statusElem.classList.add('active');
-statusMsgElem.innerHTML = html;
-}
-else {
-statusElem.classList.remove('active');
-statusMsgElem.innerHTML = '';
-}
-}
+      if (state.hoveredNode) {
+        if (state.hoveredNode === node) {
+          res.highlighted = true;
+        }
+        if (state.hoveredDescendants.has(node)) {
+          res.zIndex = 2;
+        }
+        else if (state.hoveredAncestors.has(node)) {
+          res.color = res.dim_color;
+        }
+        else {
+          res.label = undefined;
+          res.color = res.very_dim_color;
+        }
+      }
+      else if (state.hoveredPath) {
+        if (data.path[0] == state.hoveredPath) {
+          res.zIndex = 2;
+        }
+        else {
+          res.label = undefined;
+          res.color = res.dim_color;
+        }
+      }
+      else if (state.defaultNode) {
+        if (state.defaultNode === node) {
+          res.highlighted = true;
+        }
+      }
 
-for (let [top_level, li] of keyElems) {
-li.addEventListener('mouseenter', (event) => {
-setHoveredNode(undefined);
-state.hoveredPath = top_level;
-let nfiles = 0;
-let ndecls = 0;
-for (let [n, node_data] of graph.nodeEntries()) {
-if (node_data.path[0] == top_level) {
-nfiles += 1;
-ndecls += node_data.decl_count;
-}
-}
-setStatus("Highlighting " + nfiles + " files consisting of "+ndecls+" declarations");
-renderer.refresh();
-});
-li.addEventListener('mouseleave', (event) => {
-state.hoveredPath = undefined;
-setHoveredNode(default_hover ? state.defaultNode : undefined);
-setStatus(null);
-renderer.refresh();
-});
-}
+      return res;
+    },
+    edgeReducer: (edge, data) => {
+      var res = { ...data };
 
-// Bind graph interactions:
-let setHoveredNode = function(node) {
-if (node) {
-state.hoveredNode = node;
-var descendants = new Set();
-var ancestors = new Set();
-let ndecls = 0;
-graphologyLibrary.traversal.bfsFromNode(graph, node, function(node, attr, depth) {
-descendants.add(node);
-ndecls += graph.getNodeAttribute(node, 'decl_count');
-});
-graphologyLibrary.traversal.bfsFromNode(rev_graph, node, function(node, attr, depth) {
-ancestors.add(node);
-});
-state.hoveredDescendants = descendants;
-state.hoveredAncestors = ancestors;
-setStatus((descendants.size - 1) + " files consisting of "+ndecls+" declarations are imported by this file, which in turn is imported by " + (ancestors.size - 1) + " files");
-container.style.cursor = "pointer";
-} else {
-state.hoveredNode = undefined;
-state.hoveredDescendants = undefined;
-state.hoveredAncestors = undefined;
-setStatus(null);
-container.style.cursor = "inherit";
-}
+      if (state.hoveredNode) {
+        if (state.hoveredDescendants.has(graph.source(edge))) {
+          res.size = 1.5;
+        }
+        else if (state.hoveredNode == graph.target(edge)) {
+          res.color = graph.getNodeAttributes(state.hoveredNode).dark_color;
+        }
+        else {
+          res.hidden = true;
+        }
+      }
+      else if (state.hoveredPath) {
+        let src = graph.getNodeAttributes(graph.source(edge));
+        let target = graph.getNodeAttributes(graph.target(edge));
+        if (src.path[0] == state.hoveredPath && target.path[0] == state.hoveredPath) {
+          res.color = get_color({path: [state.hoveredPath]}, 1, 0.4);
+        }
+        else if (src.path[0] == state.hoveredPath) {
+          res.color = "#808080";
+        }
+        else {
+          res.color = "#E0E0E0"
+        }
+      }
 
-renderer.refresh();
-}
-renderer.on("enterNode", ({ node }) => { setHoveredNode(node);  });
-renderer.on("leaveNode", () => { setHoveredNode(default_hover ? state.defaultNode : undefined); });
-renderer.on("clickNode", ({ node }) => {
-let path = graph.getNodeAttribute(node, 'path');
-window.open(docs_url + path.join('/') + ".html");
-});
+      return res;
+    },
+  });
 
-setHoveredNode(default_hover ? state.defaultNode : undefined);
+  let statusElem = document.getElementById('statusWrapper');
+  let statusMsgElem = document.getElementById('statusMessage');
+  let setStatus = function(html) {
+    if (html) {
+      statusElem.classList.add('active');
+      statusMsgElem.innerHTML = html;
+    }
+    else {
+      statusElem.classList.remove('active');
+      statusMsgElem.innerHTML = '';
+    }
+  }
+
+  for (let [top_level, li] of keyElems) {
+    li.addEventListener('mouseenter', (event) => {
+      setHoveredNode(undefined);
+      state.hoveredPath = top_level;
+      let nfiles = 0;
+      let ndecls = 0;
+      for (let [n, node_data] of graph.nodeEntries()) {
+        if (node_data.path[0] == top_level) {
+          nfiles += 1;
+          ndecls += node_data.decl_count;
+        }
+      }
+      setStatus("Highlighting " + nfiles + " files consisting of "+ndecls+" declarations");
+      renderer.refresh();
+    });
+    li.addEventListener('mouseleave', (event) => {
+      state.hoveredPath = undefined;
+      setHoveredNode(default_hover ? state.defaultNode : undefined);
+      setStatus(null);
+      renderer.refresh();
+    });
+  }
+
+  // Bind graph interactions:
+  let setHoveredNode = function(node) {
+    if (node) {
+      state.hoveredNode = node;
+      var descendants = new Set();
+      var ancestors = new Set();
+      let ndecls = 0;
+      graphologyLibrary.traversal.bfsFromNode(graph, node, function(node, attr, depth) {
+        descendants.add(node);
+        ndecls += graph.getNodeAttribute(node, 'decl_count');
+      });
+      graphologyLibrary.traversal.bfsFromNode(rev_graph, node, function(node, attr, depth) {
+        ancestors.add(node);
+      });
+      state.hoveredDescendants = descendants;
+      state.hoveredAncestors = ancestors;
+      setStatus((descendants.size - 1) + " files consisting of "+ndecls+" declarations are imported by this file, which in turn is imported by " + (ancestors.size - 1) + " files");
+      container.style.cursor = "pointer";
+    } else {
+      state.hoveredNode = undefined;
+      state.hoveredDescendants = undefined;
+      state.hoveredAncestors = undefined;
+      setStatus(null);
+      container.style.cursor = "inherit";
+    }
+
+    renderer.refresh();
+  }
+  
+  // Add state for frozen highlight and tracking
+  let isFrozen = false;
+  let frozenNode = null;
+  let currentHoveredNode = null;
+
+  renderer.on("enterNode", ({ node, e }) => { 
+    console.log('ENTER: isFrozen:', isFrozen, 'frozenNode:', frozenNode);
+    currentHoveredNode = node;
+    console.log('Current hovered node:', node);
+    if (!isFrozen) {
+      setHoveredNode(node);
+    } else {
+      console.log('Node entered while frozen - doing nothing');
+      console.log('frozenNode:', frozenNode);
+      setHoveredNode(frozenNode);
+    }
+  });
+  
+  renderer.on("leaveNode", (event) => { 
+    if (isFrozen) {
+      // When frozen: maintain the hover state on frozenNode
+      state.hoveredNode = frozenNode;
+      event.preventSigmaDefault();
+    } else {
+      // When not frozen: let setHoveredNode handle all state
+      currentHoveredNode = null;
+      setHoveredNode(default_hover ? state.defaultNode : undefined);
+    }
+    console.log('LEAVE: isFrozen:', isFrozen, 'frozenNode:', frozenNode);
+  });
+
+  // Clear frozen state when shift is released
+  document.addEventListener('keyup', (e) => {
+    if (e.key === 'Shift') {
+      console.log('Shift released - clearing frozen state. Was:', isFrozen, frozenNode);
+      isFrozen = false;
+      frozenNode = null;
+      setHoveredNode(default_hover ? state.defaultNode : undefined);
+    }
+  });
+
+  // React to shift key
+  document.addEventListener('keydown', (e) => {
+    console.log('keydown', e.key);
+    if (e.key === 'Shift' && currentHoveredNode && !isFrozen) {
+      isFrozen = true;
+      frozenNode = currentHoveredNode;
+      console.log('Freezing on node:', currentHoveredNode);
+      setHoveredNode(currentHoveredNode);
+    }
+  });
+
+  renderer.on("clickNode", ({ node }) => {
+    let path = graph.getNodeAttribute(node, 'path');
+    window.open(docs_url + path.join('/') + ".html");
+  });
+
+  // Add toggle button handler
+  toggleButton.textContent = 'Hide All Nodes';  // Initial text
+  
+  toggleButton.addEventListener('click', () => {
+    const allSelected = Object.values(areaSelected).every(state => state);
+    
+    // Toggle all areas
+    for (let area in areaSelected) {
+      areaSelected[area] = !allSelected;
+      keyElems.get(area).style.fontWeight = allSelected ? 'normal' : 'bold';
+    }
+    
+    // Update button text
+    toggleButton.textContent = allSelected ? 'Show All Nodes' : 'Hide All Nodes';
+    
+    // Update graph visibility
+    graph.forEachNode((node, attrs) => {
+      const isVisible = areaSelected[attrs.path[0]];
+      graph.setNodeAttribute(node, 'hidden', !isVisible);
+    });
+    
+    graph.forEachEdge((edge, attrs, source, target) => {
+      const sourceVisible = !graph.getNodeAttribute(source, 'hidden');
+      const targetVisible = !graph.getNodeAttribute(target, 'hidden');
+      graph.setEdgeAttribute(edge, 'hidden', !(sourceVisible && targetVisible));
+    });
+    
+    renderer.refresh();
+  });
+
+  // Hide nodes from hidden areas in the graph
+  graph.forEachNode((node, attrs) => {
+    if (attrs && attrs.path && HIDDEN_AREAS.includes(attrs.path[0])) {
+      graph.setNodeAttribute(node, 'hidden', true);
+    }
+  });
+
+  // Hide edges connected to hidden nodes
+  graph.forEachEdge((edge, attrs, source, target) => {
+    const sourcePath = graph.getNodeAttribute(source, 'path');
+    const targetPath = graph.getNodeAttribute(target, 'path');
+    
+    if (sourcePath && targetPath) {
+      const sourceHidden = HIDDEN_AREAS.includes(sourcePath[0]);
+      const targetHidden = HIDDEN_AREAS.includes(targetPath[0]);
+      if (sourceHidden || targetHidden) {
+        graph.setEdgeAttribute(edge, 'hidden', true);
+      }
+    }
+  });
 };
 
 fetch(docs_url + "import.gexf").then((res) => res.text()).then(render_gexf);
 
 container.addEventListener("dragover",  ev => {
-event.preventDefault();
+  event.preventDefault();
 });
 container.addEventListener('drop', ev => {
-ev.preventDefault();
-for (const item of ev.dataTransfer.items) {
-if (item.kind == "file") {
-item.getAsFile().text().then(render_gexf);
-break;
-}
-}
+  ev.preventDefault();
+  for (const item of ev.dataTransfer.items) {
+    if (item.kind == "file") {
+      item.getAsFile().text().then(render_gexf);
+      break;
+    }
+  }
 });
 </script>
 
