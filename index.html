@@ -3,230 +3,565 @@
 <head>
   <meta charset="utf-8">
   <title>Mathlib import graph</title>
+
+  <!-- Sigma / Graphology libraries -->
   <script src="vendor/sigma.min.js"></script>
   <script src="vendor/graphology.min.js"></script>
   <script src="vendor/graphology-library.min.js"></script>
+
   <style>
-    html, body { height: 100%; width: 100%; margin: 0; padding: 0; position: relative; }
-    .sigma { position: absolute; width: 100%; height: 100%; top: 0; left: 0; overflow: hidden; }
-    p, label, .summary { text-align: center; }
-    .summary { position: absolute; top: 0; left: 0; right: 0; }
-    .key-wrapper { position: absolute; bottom: 0; left: 0; right: 0; }
-    #key { list-style: none; columns: 10em auto; }
-    .summary, .key-wrapper { text-shadow: 0 0 5px white, -1px -1px 0 white, 0 -1px 0 white, 1px -1px 0 white, 1px 0 0 white, 1px 1px 0 white, 0 1px 0 white, -1px 1px 0 white, -1px 0 0 white; }
-    ul > li { white-space: nowrap; }
-    ul > li:hover { font-weight: bold; }
-    #key > li > span { width: 1ch; height: 1ch; display: inline-block; margin-right: 0.25em; border: 1px solid gray; margin-bottom: -1px }
-    .status.active .placeholder { visibility: hidden; }
-    .status { position: relative; }
-    .status .message { position: absolute; top: 0; bottom: 0; width: 100%; text-align: center; }
-    button { margin: 2px; padding: 4px; }
+    html, body {
+      height: 100%; width: 100%;
+      margin: 0; padding: 0;
+      position: relative;
+    }
+    .sigma {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0; left: 0;
+      overflow: hidden;
+    }
+
+    p, label, .summary {
+      text-align: center;
+    }
+    .summary {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+    }
+    .key-wrapper {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+    }
+    #key {
+      list-style: none;
+      columns: 10em auto;
+    }
+
+    /* Text shadow so overlays remain readable. */
+    .summary, .key-wrapper {
+      text-shadow:
+         0 0 5px white,
+        -1px -1px 0 white,
+         0 -1px 0 white,
+         1px -1px 0 white,
+         1px  0  0 white,
+         1px  1px 0 white,
+         0  1px 0 white,
+        -1px  1px 0 white,
+        -1px  0  0 white;
+    }
+
+    ul > li {
+      white-space: nowrap;
+    }
+    ul > li:hover {
+      font-weight: bold;
+    }
+    #key > li > span {
+      width: 1ch; height: 1ch;
+      display: inline-block;
+      margin-right: 0.25em;
+      border: 1px solid gray;
+      margin-bottom: -1px;
+    }
+
+    .status.active .placeholder {
+      visibility: hidden;
+    }
+    .status {
+      position: relative;
+    }
+    .status .message {
+      position: absolute;
+      top: 0; bottom: 0; width: 100%;
+      text-align: center;
+    }
+
+    button {
+      margin: 2px; padding: 4px;
+    }
   </style>
 </head>
 <body>
   <div class="sigma" id="sigma-example"></div>
   <div class="summary">
-    <p>A visualization of the import graph of <a href="https://github.com/leanprover-community/mathlib">Lean's Mathlib</a>, built with <a href="https://www.sigmajs.org/">Sigma.js</a>. Node sizes indicate the number of declarations in the file.</p>
-    <label><input type="checkbox" id="pause" checked/> Pause graph layout</label>
+    <p>
+      A visualization of the import graph of 
+      <a href="https://github.com/leanprover-community/mathlib">Lean's Mathlib</a>, 
+      built with 
+      <a href="https://www.sigmajs.org/">Sigma.js</a>. 
+      Node sizes indicate the number of declarations in the file.
+    </p>
+    <label>
+      <input type="checkbox" id="pause" checked/> Pause graph layout
+    </label>
   </div>
   <div class="key-wrapper">
     <button id="toggleAll">Hide All Nodes</button>
     <button id="restoreAll">Restore All Nodes</button>
     <ul id="key"></ul>
     <div class="status" id="statusWrapper">
-      <p class="placeholder">Hover over a node to show only the files it imports. Hover over a directory name to highlight only the files in that directory.</p>
-      <p><b><font style="color:magenta">Click on a directory/area to hide/show all nodes in that directory/area. Use Shift while hovering over a node to freeze a subgraph.</font></b></p>
+      <p class="placeholder">
+        Hover over a node to show only the files it imports. Hover over a directory name 
+        to highlight only the files in that directory.
+      </p>
+      <p>
+        <b>
+          <font style="color:magenta">
+            Click on a directory/area to hide/show all nodes in that directory/area. 
+            Use Shift while hovering over a node to freeze a subgraph.
+          </font>
+        </b>
+      </p>
       <div class="message" id="statusMessage"></div>
     </div>
   </div>
 
-<script type="text/javascript">
-var params = new URLSearchParams(window.location.search);
-var docs_url = params.get("docs_url") || "https://leanprover-community.github.io/mathlib_docs/";
-const HIDDEN_AREAS = ['init', 'girard', 'wiedijk_100_theorems', 'data', 'map_floor', 'system', 'tactic', 'testing', 'phillips', 'meta', 'deprecated', 'examples', 'cyclotomic_105', 'arithcc', 'char_p_zero_ne_char_zero', 'canonically_ordered_comm_semiring_two_mul','miu_language',  'direct_sum_is_internal', 'imo', 'homogeneous_prime_not_prime', 'linear_order_with_pos_mul_pos_eq_zero', 'oxford_invariants', 'seminorm_lattice_not_distrib', 'zero_divisors_in_add_monoid_algebras'];
-let originalGexf;
-let currentRenderer = null;
+  <script type="text/javascript">
+    // Default docs_url for fetching import.gexf, or user-provided via URL params
+    var params = new URLSearchParams(window.location.search);
+    var docs_url = params.get("docs_url") || "https://leanprover-community.github.io/mathlib_docs/";
 
-function hslToRgb(h, s, l){
-  let r, g, b;
-  if(s === 0) r = g = b = l;
-  else {
-    const hue2rgb = (p, q, t) => {
-      if(t < 0) t += 1; if(t > 1) t -= 1;
-      if(t < 1/6) return p + (q - p) * 6 * t;
-      if(t < 1/2) return q;
-      if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-      return p;
-    };
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    r = hue2rgb(p, q, h + 1/3);
-    g = hue2rgb(p, q, h);
-    b = hue2rgb(p, q, h - 1/3);
-  }
-  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
-}
+    // Areas to always hide or remove (if relevant)
+    const HIDDEN_AREAS = [
+      'init','girard','wiedijk_100_theorems','data','map_floor','system','tactic','testing',
+      'phillips','meta','deprecated','examples','cyclotomic_105','arithcc','char_p_zero_ne_char_zero',
+      'canonically_ordered_comm_semiring_two_mul','miu_language','direct_sum_is_internal','imo',
+      'homogeneous_prime_not_prime','linear_order_with_pos_mul_pos_eq_zero','oxford_invariants',
+      'seminorm_lattice_not_distrib','zero_divisors_in_add_monoid_algebras'
+    ];
 
-function commonPrefix(a, b) {
-  for (let i = 0; i < Math.min(a.length, b.length); i++) if (a[i] !== b[i]) return i;
-  return Math.min(a.length, b.length);
-}
+    // We'll store the original GEXF so we can restore later
+    let originalGexf = null;
 
-function initializeRenderer(graph, container) {
-  if (currentRenderer) currentRenderer.kill();
-  
-  const renderer = new Sigma.Sigma(graph, container, {
-    defaultEdgeType: "arrow",
-    defaultEdgeColor: "#c0c0c0",
-    minArrowSize: 30,
-    zIndex: true,
-    nodeReducer: (node, data) => ({ ...data }),
-    edgeReducer: (edge, data) => ({ ...data })
-  });
-  
-  currentRenderer = renderer;
-  return renderer;
-}
-
-async function render_gexf(gexf) {
-  const container = document.getElementById('sigma-example');
-  const graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
-  const rev_graph = graphologyLibrary.operators.reverse(graph);
-  let state = { hoveredNode: null, hoveredDescendants: null, hoveredPath: null };
-  let layoutInterval = null;
-
-  graph.nodes().forEach(node => {
-    const [proj, path] = node.split(':');
-    graph.setNodeAttribute(node, 'proj', proj);
-    graph.setNodeAttribute(node, 'path', path.split('.'));
-  });
-
-  const tree = new Map();
-  graph.nodes().forEach(node => {
-    const path = graph.getNodeAttribute(node, 'path');
-    let currentLevel = tree;
-    path.forEach(p => {
-      if (!currentLevel.has(p)) currentLevel.set(p, new Map());
-      currentLevel = currentLevel.get(p);
-    });
-  });
-
-  const areaSelected = {};
-  Array.from(tree.keys()).forEach(area => {
-    if (!HIDDEN_AREAS.includes(area)) areaSelected[area] = true;
-  });
-
-  const key = document.getElementById('key');
-  key.innerHTML = '';
-  const keyElems = new Map();
-
-  const getColor = (nodeData, s = 1, l = 0.5) => {
-    const path = nodeData.path;
-    let h = 0, width = 1;
-    let currentLevel = tree;
-    path.forEach((p, i) => {
-      const keys = Array.from(currentLevel.keys()).sort();
-      const idx = keys.indexOf(p);
-      h += (idx / keys.length) * width;
-      width /= keys.length;
-      currentLevel = currentLevel.get(p);
-    });
-    const [r, g, b] = hslToRgb(h % 1, s, l);
-    return `rgb(${r},${g},${b})`;
-  };
-
-  Array.from(tree.keys()).sort().forEach(topLevel => {
-    if (HIDDEN_AREAS.includes(topLevel)) return;
-    
-    const li = document.createElement('li');
-    const color = getColor({ path: [topLevel] });
-    
-    li.innerHTML = `
-      <span style="background-color: ${color}; border-color: ${getColor({ path: [topLevel] }, 1, 0.4)}"></span>
-      ${topLevel}
-      <button class="remove-btn">Remove</button>
-    `;
-    
-    li.style.fontWeight = 'bold';
-    key.appendChild(li);
-    keyElems.set(topLevel, li);
-  });
-
-  keyElems.forEach((li, topLevel) => {
-    li.querySelector('.remove-btn').addEventListener('click', () => {
-      graph.forEachNode(node => {
-        if (graph.getNodeAttribute(node, 'path')[0] === topLevel) graph.dropNode(node);
-      });
-      initializeRenderer(graph, container).refresh();
-    });
-
-    li.addEventListener('click', () => {
-      areaSelected[topLevel] = !areaSelected[topLevel];
-      li.style.fontWeight = areaSelected[topLevel] ? 'bold' : 'normal';
-      graph.forEachNode(node => {
-        graph.setNodeAttribute(node, 'hidden', !areaSelected[graph.getNodeAttribute(node, 'path')[0]]);
-      });
-      currentRenderer.refresh();
-    });
-  });
-
-  graph.dropNode('core:init.default');
-  graph.nodes().forEach(node => {
-    if (graph.getNodeAttribute(node, 'proj') !== 'mathlib') graph.dropNode(node);
-    else graph.setNodeAttribute(node, 'label', graph.getNodeAttribute(node, 'path').join('.'));
-  });
-
-  graph.nodes().forEach(node => {
-    graph.setNodeAttribute(node, 'color', getColor({ path: graph.getNodeAttribute(node, 'path') }));
-    graph.setNodeAttribute(node, 'size', 2 + Math.sqrt(graph.getNodeAttribute(node, 'decl_count')) / 5);
-  });
-
-  graph.edges().forEach(edge => {
-    const source = graph.source(edge);
-    const target = graph.target(edge);
-    const sourcePath = graph.getNodeAttribute(source, 'path');
-    const targetPath = graph.getNodeAttribute(target, 'path');
-    const common = commonPrefix(sourcePath, targetPath);
-    graph.setEdgeAttribute(edge, 'weight', [1, 2, 4, 8][Math.min(common, 3)]);
-  });
-
-  const forceSettings = {
-    barnesHutOptimize: false,
-    strongGravityMode: false,
-    gravity: 0.05,
-    scalingRatio: 10,
-    slowDown: 10,
-    edgeWeightInfluence: 1
-  };
-
-  graphologyLibrary.layoutForceAtlas2.assign(graph, { iterations: 50, settings: forceSettings });
-  
-  const renderer = initializeRenderer(graph, container);
-  window.renderer = renderer;
-
-  document.getElementById('pause').addEventListener('change', e => {
-    if (e.target.checked) {
-      if (layoutInterval) clearInterval(layoutInterval);
-    } else {
-      layoutInterval = setInterval(() => {
-        graphologyLibrary.layoutForceAtlas2.assign(graph, { iterations: 1, settings: forceSettings });
-        renderer.refresh();
-      }, 50);
+    // Basic color function: HSL -> RGB
+    function hslToRgb(h, s, l){
+      var r, g, b;
+      if(s === 0){
+        r = g = b = l;
+      } else {
+        var hue2rgb = function(p, q, t){
+          if(t < 0) t += 1; if(t > 1) t -= 1;
+          if(t < 1/6) return p + (q - p) * 6 * t;
+          if(t < 1/2) return q;
+          if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        var q = l < 0.5 ? l * (1 + s) : l + s - l*s;
+        var p = 2*l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return [Math.round(r*255), Math.round(g*255), Math.round(b*255)];
     }
-  });
 
-  document.getElementById('restoreAll').addEventListener('click', () => {
-    if (layoutInterval) clearInterval(layoutInterval);
-    render_gexf(originalGexf);
-  });
-}
+    // Return number of shared prefix elements
+    function common_prefix(a, b) {
+      for (var i = 0; i < Math.min(a.length, b.length); i++) {
+        if (a[i] !== b[i]) return i;
+      }
+      return Math.min(a.length, b.length);
+    }
 
-fetch(docs_url + "import.gexf")
-  .then(res => res.text())
-  .then(gexf => {
-    originalGexf = gexf;
-    render_gexf(gexf);
-  });
-</script>
+    // Start ForceAtlas2 layout with an interval so it keeps moving
+    function startLayout(graph, force_atlas_settings) {
+      let layoutInterval = setInterval(() => {
+        graphologyLibrary.layoutForceAtlas2.assign(graph, {
+          iterations: 1,
+          settings: force_atlas_settings
+        });
+        window.renderer.refresh();
+      }, 50);
+      return layoutInterval;
+    }
+
+    // Our main render function
+    function render_gexf(gexf) {
+      // Parse the GEXF
+      let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
+      // Reverse graph for BFS ancestors
+      let rev_graph = graphologyLibrary.operators.reverse(graph);
+
+      // Basic interaction/hover state
+      var state = {
+        hoveredNode: undefined,
+        hoveredDescendants: undefined,
+        hoveredPath: undefined,
+        defaultNode: params.get("highlight")
+      };
+      var default_hover = !!params.get("default_hover");
+
+      // Convert node names into data (proj / path)
+      graph.forEachNode((node, node_data) => {
+        let [proj, path_str] = node.split(':');
+        node_data.proj = proj;
+        node_data.path = path_str.split('.');
+      });
+
+      // Build directory tree for top-level keys
+      let tree = new Map();
+      graph.forEachNode((node, node_data) => {
+        let at = tree;
+        for (let p of node_data.path) {
+          if (!at.has(p)) at.set(p, new Map());
+          at = at.get(p);
+        }
+      });
+
+      // Keep track of top-level area selection (excluding hidden areas)
+      var areaSelected = {};
+      for (let area of tree.keys()) {
+        if (!HIDDEN_AREAS.includes(area)) {
+          areaSelected[area] = true;
+        }
+      }
+
+      // Clear existing key items
+      let key = document.getElementById('key');
+      while(key.firstChild) key.removeChild(key.lastChild);
+      var keyElems = new Map();
+
+      // Fraction for color assignment
+      function get_frac(path) {
+        var pos = 0, width = 1, at = tree;
+        for (let [i, p] of path.entries()) {
+          var key_arr = Array.from(at.keys()).sort();
+          width /= key_arr.length;
+          var ind = key_arr.indexOf(p);
+          if (ind === -1) break;
+          pos += width*ind;
+          at = at.get(p);
+        }
+        return [pos, path.length];
+      }
+
+      // Node color
+      function get_color(node_data, s=1, l=0.5) {
+        let [h] = get_frac(node_data.path);
+        let [r, g, b] = hslToRgb(h, s, l);
+        return `rgb(${r},${g},${b})`;
+      }
+
+      // Build top-level key items
+      for (let top_level of Array.from(tree.keys()).sort()) {
+        if (HIDDEN_AREAS.includes(top_level)) continue;
+
+        let li = document.createElement('li');
+        let sp = document.createElement('span');
+        sp.style.backgroundColor = get_color({path: [top_level]});
+        sp.style.borderColor = get_color({path: [top_level]}, 1, 0.4);
+
+        // "Remove" button for dropping all nodes in that area
+        let removeBtn = document.createElement('button');
+        removeBtn.textContent = 'Remove';
+        removeBtn.style.marginLeft = '8px';
+
+        // Build the list item
+        li.appendChild(sp);
+        li.appendChild(document.createTextNode(top_level));
+        li.appendChild(removeBtn);
+        li.style.fontWeight = 'bold';
+
+        key.appendChild(li);
+        keyElems.set(top_level, li);
+      }
+
+      // If it's there, remove "core:init.default" (only if it truly exists)
+      if (graph.hasNode('core:init.default')) {
+        graph.dropNode('core:init.default');
+      }
+
+      // IMPORTANT: If you want to keep only mathlib nodes, check that they exist
+      // If your GEXF doesn't actually have "mathlib", removing everything is a problem!
+      // For safety, let's only drop non-mathlib if we find at least one real "mathlib" node:
+      let mathlibNodesCount = 0;
+      graph.forEachNode((node, attrs) => {
+        if (attrs.proj === 'mathlib') mathlibNodesCount++;
+      });
+      if (mathlibNodesCount > 0) {
+        // Now it's safe to drop non-mathlib nodes
+        let toRemove = [];
+        graph.forEachNode((node, node_data) => {
+          if (node_data.proj !== 'mathlib') toRemove.push(node);
+        });
+        toRemove.forEach(node => graph.dropNode(node));
+      }
+
+      // Label each "mathlib" node
+      graph.forEachNode((node, attrs) => {
+        if (attrs.proj === 'mathlib') {
+          attrs.label = attrs.path.join('.');
+        }
+      });
+
+      // Color and size each node
+      graph.forEachNode((node, attrs) => {
+        let color = get_color(attrs);
+        graph.setNodeAttribute(node, 'color', color);
+        // Provide a random initial position so ForceAtlas2 has something to work with
+        attrs.x = Math.random(); 
+        attrs.y = Math.random();
+        attrs.size = 2 + Math.sqrt(attrs.decl_count || 0) / 5;
+      });
+
+      // Edge weights
+      graph.forEachEdge((edgeId, edgeAttrs, source, target) => {
+        let sdata = graph.getNodeAttributes(source);
+        let tdata = graph.getNodeAttributes(target);
+        let ncommon = common_prefix(sdata.path, tdata.path);
+        if (sdata.proj !== tdata.proj) {
+          edgeAttrs.weight = 1;
+        }
+        else if (ncommon === 0) {
+          edgeAttrs.weight = 2;
+        }
+        else if (ncommon === 1) {
+          edgeAttrs.weight = 4;
+        }
+        else {
+          edgeAttrs.weight = 8;
+        }
+      });
+
+      // Set up Force Atlas 2
+      let force_atlas_settings = {
+        barnesHutOptimize: false,
+        strongGravityMode: false,
+        gravity: 0.05,
+        scalingRatio: 10,
+        slowDown: 10,
+        edgeWeightInfluence: 1,
+        filterNodes: node => !graph.getNodeAttribute(node, 'hidden'),
+        filterEdges: edge => !graph.getEdgeAttribute(edge, 'hidden')
+      };
+
+      // Start layout
+      let layoutInterval = startLayout(graph, force_atlas_settings);
+
+      // Remove any old renderer
+      if (window.renderer) {
+        window.renderer.kill();
+      }
+
+      // Create Sigma renderer
+      window.renderer = new Sigma.Sigma(graph, document.getElementById('sigma-example'), {
+        defaultEdgeType: "arrow",
+        defaultEdgeColor: "#c0c0c0",
+        minArrowSize: 30,
+        zIndex: true,
+        nodeReducer: (node, data) => data,
+        edgeReducer: (edge, data) => data
+      });
+
+      // Button to restore the entire graph from the original GEXF
+      let restoreAllBtn = document.getElementById('restoreAll');
+      restoreAllBtn.onclick = () => {
+        clearInterval(layoutInterval);
+        if (originalGexf) {
+          // Render from scratch
+          render_gexf(originalGexf);
+        }
+      };
+
+      // "Hide All Nodes" button
+      let toggleAllBtn = document.getElementById('toggleAll');
+      toggleAllBtn.onclick = () => {
+        // If any node is still visible, hide them; otherwise show them
+        let anyVisible = false;
+        graph.forEachNode(node => {
+          if (!graph.getNodeAttribute(node, 'hidden')) {
+            anyVisible = true;
+          }
+        });
+        if (anyVisible) {
+          // Hide all
+          graph.forEachNode(node => graph.setNodeAttribute(node, 'hidden', true));
+          graph.forEachEdge(edge => graph.setEdgeAttribute(edge, 'hidden', true));
+          toggleAllBtn.textContent = 'Show All Nodes';
+        } else {
+          // Show all
+          graph.forEachNode(node => graph.setNodeAttribute(node, 'hidden', false));
+          graph.forEachEdge((edge, attrs, source, target) => {
+            if (!graph.getNodeAttribute(source, 'hidden') && !graph.getNodeAttribute(target, 'hidden')) {
+              graph.setEdgeAttribute(edge, 'hidden', false);
+            }
+          });
+          toggleAllBtn.textContent = 'Hide All Nodes';
+        }
+        window.renderer.refresh();
+      };
+
+      // Pause/Resume layout
+      let pause = document.getElementById('pause');
+      pause.onchange = (event) => {
+        if (event.currentTarget.checked) {
+          clearInterval(layoutInterval);
+        } else {
+          layoutInterval = startLayout(graph, force_atlas_settings);
+        }
+      };
+
+      // Set up button logic for "Remove" next to each area name
+      keyElems.forEach((li, top_level) => {
+        let removeButton = li.querySelector('button');
+        if (!removeButton) return;
+
+        removeButton.addEventListener('click', e => {
+          e.stopPropagation(); // Don’t also toggle hidden
+          let nodesToRemove = [];
+          graph.forEachNode((node, attrs) => {
+            if (attrs.path[0] === top_level) {
+              nodesToRemove.push(node);
+            }
+          });
+          // Drop those nodes
+          nodesToRemove.forEach(node => graph.dropNode(node));
+          window.renderer.refresh();
+        });
+
+        // Toggle "hidden" on click of the area label (li)
+        li.addEventListener('click', event => {
+          // Don’t run if user specifically clicked "Remove"
+          if (event.target === removeButton) {
+            return;
+          }
+          areaSelected[top_level] = !areaSelected[top_level];
+          li.style.fontWeight = areaSelected[top_level] ? 'bold' : 'normal';
+
+          // Hide or show nodes in that area
+          graph.forEachNode((node, attrs) => {
+            if (attrs.path[0] === top_level) {
+              graph.setNodeAttribute(node, 'hidden', !areaSelected[top_level]);
+            }
+          });
+
+          // Update edges
+          graph.forEachEdge((edge, attrs, source, target) => {
+            let sHidden = graph.getNodeAttribute(source, 'hidden');
+            let tHidden = graph.getNodeAttribute(target, 'hidden');
+            graph.setEdgeAttribute(edge, 'hidden', (sHidden || tHidden));
+          });
+          window.renderer.refresh();
+        });
+      });
+
+      // Example BFS to get descendants/ancestors on hover
+      let setHoveredNode = function(node) {
+        if (!node) {
+          state.hoveredNode = undefined;
+          state.hoveredDescendants = undefined;
+          state.hoveredAncestors = undefined;
+          document.getElementById('statusMessage').textContent = '';
+          container.style.cursor = "inherit";
+          window.renderer.refresh();
+          return;
+        }
+        state.hoveredNode = node;
+        let descendants = new Set();
+        let ancestors = new Set();
+        let ndecls = 0;
+
+        // BFS forward
+        graphologyLibrary.traversal.bfsFromNode(graph, node, function(n, attr, depth) {
+          descendants.add(n);
+          ndecls += (graph.getNodeAttribute(n, 'decl_count') || 0);
+        });
+        // BFS backward
+        graphologyLibrary.traversal.bfsFromNode(rev_graph, node, function(n, attr, depth) {
+          ancestors.add(n);
+        });
+
+        state.hoveredDescendants = descendants;
+        state.hoveredAncestors = ancestors;
+        document.getElementById('statusMessage').textContent =
+          (descendants.size - 1) + " files (" + ndecls + " declarations) " +
+          "imported by this file, imported by " + (ancestors.size - 1) + " files.";
+        container.style.cursor = "pointer";
+        window.renderer.refresh();
+      };
+
+      // Basic interactions
+      window.renderer.on("enterNode", ({ node }) => {
+        setHoveredNode(node);
+      });
+      window.renderer.on("leaveNode", () => {
+        setHoveredNode(default_hover ? state.defaultNode : undefined);
+      });
+      window.renderer.on("clickNode", ({ node }) => {
+        let path = graph.getNodeAttribute(node, 'path');
+        window.open(docs_url + path.join('/') + ".html");
+      });
+
+      // SHIFT to freeze highlight
+      let isFrozen = false;
+      let frozenNode = null;
+      let currentHoveredNode = null;
+
+      window.renderer.on("enterNode", ({ node }) => {
+        currentHoveredNode = node;
+        if (!isFrozen) {
+          setHoveredNode(node);
+        } else {
+          setHoveredNode(frozenNode);
+        }
+      });
+      window.renderer.on("leaveNode", () => {
+        if (!isFrozen) {
+          currentHoveredNode = null;
+          setHoveredNode(default_hover ? state.defaultNode : undefined);
+        }
+      });
+
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Shift' && currentHoveredNode && !isFrozen) {
+          isFrozen = true;
+          frozenNode = currentHoveredNode;
+          setHoveredNode(frozenNode);
+        }
+      });
+      document.addEventListener('keyup', e => {
+        if (e.key === 'Shift') {
+          isFrozen = false;
+          frozenNode = null;
+          setHoveredNode(default_hover ? state.defaultNode : undefined);
+        }
+      });
+
+      // Debugging: log final node count
+      console.log("Node count after filtering/dropping: ", graph.order);
+      if (graph.order === 0) {
+        console.warn("No nodes remain! Check if your GEXF has 'mathlib' nodes or revise the dropping logic.");
+      }
+    }
+
+    // Load GEXF from docs_url
+    fetch(docs_url + "import.gexf")
+      .then(res => res.text())
+      .then(gexf => {
+        originalGexf = gexf;
+        render_gexf(gexf);
+      });
+
+    // Support drag/drop for GEXF
+    let container = document.getElementById('sigma-example');
+    container.addEventListener("dragover",  ev => {
+      ev.preventDefault();
+    });
+    container.addEventListener('drop', ev => {
+      ev.preventDefault();
+      for (const item of ev.dataTransfer.items) {
+        if (item.kind === "file") {
+          item.getAsFile().text().then(text => {
+            originalGexf = text;
+            render_gexf(text);
+          });
+          break;
+        }
+      }
+    });
+  </script>
 </body>
 </html>
