@@ -2,13 +2,14 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Graph Visualization</title>
+  <title>Graph Visualization with Label Removal</title>
   <script src="vendor/sigma.min.js"></script>
   <script src="vendor/graphology.min.js"></script>
   <script src="vendor/graphology-library.min.js"></script>
   <style>
     html, body {
-      height: 100%; width: 100%;
+      height: 100%; 
+      width: 100%;
       margin: 0;
       padding: 0;
       position: relative;
@@ -21,66 +22,139 @@
       left: 0;
       overflow: hidden;
     }
+    /* Floating control panel */
+    #control-panel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      max-height: 90%;
+      overflow-y: auto;
+      z-index: 1000;
+    }
+    #control-panel h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+    #control-panel button {
+      display: block;
+      width: 100%;
+      margin-bottom: 5px;
+      padding: 4px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
   <div class="sigma" id="sigma-example"></div>
+  <div id="control-panel">
+    <h3>Remove Nodes by Label</h3>
+    <!-- Buttons are added dynamically -->
+  </div>
 
   <script>
-    let container = document.getElementById('sigma-example');
+    const container = document.getElementById('sigma-example');
+
+    // This function loads and renders the graph,
+    // then builds the control panel with remove buttons.
     var render_gexf = (gexf) => {
+      // Parse the GEXF file into a Graphology graph.
       let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
+      // Reverse graph (if needed for other interactions)
       let rev_graph = graphologyLibrary.operators.reverse(graph);
 
+      // Remove a special node if present.
       graph.dropNode('core:init.default');
 
-      // Single loop to process all nodes
+      // Process all nodes:
+      // Split each node's id into "proj" and a dot‑separated path.
+      // Keep only nodes from the "mathlib" project.
       for (let [node, node_data] of graph.nodeEntries()) {
         let [proj, path_str] = node.split(':');
         node_data.proj = proj;
         node_data.path = path_str.split('.');
         
-        if (node_data.proj == 'mathlib') {
-          node_data.label = node_data.path.join('.'); // label does not contain "mathlib"
+        if (node_data.proj === 'mathlib') {
+          // Use the full path (without "mathlib") as the label.
+          node_data.label = node_data.path.join('.');
         } else {
-          graph.dropNode(node); // remove non-mathlib nodes
+          // Drop nodes not belonging to mathlib.
+          graph.dropNode(node);
         }
       }
 
-      //assign weights to edges
-      //https://graphology.github.io/iteration.html#edgeentries
+      // Assign weights to edges based on common path prefixes.
       for (let [key, attrs, s, t, sdata, tdata] of graph.edgeEntries()) {
-        var ncommon = 0;
-        for (var i = 0; i < Math.min(sdata.path.length, tdata.path.length); i++) {
-          if (sdata.path[i] != tdata.path[i]) break;
+        let ncommon = 0;
+        for (let i = 0; i < Math.min(sdata.path.length, tdata.path.length); i++) {
+          if (sdata.path[i] !== tdata.path[i]) break;
           ncommon = i + 1;
         }
-        
-        if (sdata.proj != tdata.proj) {
-          attrs.weight = 1; // different projects, weakest connection
+        if (sdata.proj !== tdata.proj) {
+          attrs.weight = 1; // weakest connection between different projects
         }
-        else if (ncommon == 0) {
-          attrs.weight = 2; //same project, different subsequent paths
+        else if (ncommon === 0) {
+          attrs.weight = 2;
         }
-        else if (ncommon == 1) {
-          attrs.weight = 4; // agree on prefix of length 2
+        else if (ncommon === 1) {
+          attrs.weight = 4;
         }
         else {
           attrs.weight = 8; // strongest connection
         }
       }
 
+      // Optionally, assign initial positions and sizes.
       let sorted_nodes = Array.from(graph.nodes()).sort();
       for (let [i, node] of sorted_nodes.entries()) {
         let node_data = graph.getNodeAttributes(node);
-        var theta = i / sorted_nodes.length;
+        const theta = i / sorted_nodes.length;
         node_data.x = 0.1 * Math.cos(theta * 2 * Math.PI);
         node_data.y = 0.1 * Math.sin(theta * 2 * Math.PI);
-        node_data.size = 2 + Math.sqrt(node_data.decl_count) / 5;
+        // Use decl_count if available; otherwise default to 0.
+        node_data.size = 2 + Math.sqrt(node_data.decl_count || 0) / 5;
       }
 
-      // render graph
-      // https://www.sigmajs.org/docs/advanced/data
+      // === Build the control panel for label-based removal ===
+      const controlPanel = document.getElementById('control-panel');
+      // Remove any existing buttons (for re-renders).
+      controlPanel.querySelectorAll('button.label-btn').forEach(btn => btn.remove());
+
+      // Create a set of top-level labels.
+      // In this context, the top-level label is the first element of the path.
+      const labelsSet = new Set();
+      graph.forEachNode((node, attrs) => {
+        if (attrs.path && attrs.path.length > 0) {
+          labelsSet.add(attrs.path[0]);
+        }
+      });
+
+      // For each unique label, create a button that removes matching nodes.
+      labelsSet.forEach(label => {
+        const btn = document.createElement('button');
+        btn.className = 'label-btn';
+        btn.textContent = 'Remove "' + label + '" nodes';
+        btn.addEventListener('click', () => {
+          // Find all nodes where the first element of the path equals the label.
+          const nodesToRemove = [];
+          graph.forEachNode((node, attrs) => {
+            if (attrs.path && attrs.path[0] === label) {
+              nodesToRemove.push(node);
+            }
+          });
+          // Remove each matching node.
+          nodesToRemove.forEach(node => graph.dropNode(node));
+          // Refresh the renderer to update the visualization.
+          window.renderer.refresh();
+        });
+        controlPanel.appendChild(btn);
+      });
+      // ========================================================
+
+      // Render the graph with Sigma.
       window.graph = graph;
       window.renderer = new Sigma.Sigma(graph, container, {
         defaultEdgeType: "arrow",
@@ -92,7 +166,8 @@
       });
     };
 
-    let docs_url = "https://leanprover-community.github.io/mathlib_docs/";
+    // Load the GEXF file from the docs URL.
+    const docs_url = "https://leanprover-community.github.io/mathlib_docs/";
     fetch(docs_url + "import.gexf")
       .then((res) => res.text())
       .then(render_gexf);
