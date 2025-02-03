@@ -2,13 +2,13 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Graph Visualization with Label Removal</title>
+  <title>Graph Visualization with Freezing & Label Removal</title>
   <script src="vendor/sigma.min.js"></script>
   <script src="vendor/graphology.min.js"></script>
   <script src="vendor/graphology-library.min.js"></script>
   <style>
     html, body {
-      height: 100%; 
+      height: 100%;
       width: 100%;
       margin: 0;
       padding: 0;
@@ -51,33 +51,68 @@
   <div class="sigma" id="sigma-example"></div>
   <div id="control-panel">
     <h3>Remove Nodes by Label</h3>
-    <!-- Buttons are added dynamically -->
   </div>
 
   <script>
-    const container = document.getElementById('sigma-example');
+    let frozenSubgraph = null;
+    const ORIGINAL_LABEL_THRESHOLD = 5;
 
-    // This function loads and renders the graph,
-    // then builds the control panel with remove buttons.
+    const container = document.getElementById('sigma-example');
+    const docs_url = "https://leanprover-community.github.io/mathlib_docs/";
+
+    function customNodeReducer(node, data) {
+      // If no freezing is active, return the node unchanged.
+      if (!frozenSubgraph) return data;
+      const inSubgraph = frozenSubgraph.nodes.has(node);
+      const newData = { ...data };
+      if (inSubgraph) {
+        if (node === frozenSubgraph.center) {
+          newData.size = data.size * 1.5;
+          newData.color = "#000000";
+        }
+        if (frozenSubgraph.nodes.size / window.graph.order <= 0.2) {
+          // Force the label to be non-empty so that it gets drawn.
+          newData.label = data.label;
+        }
+        return newData;
+      } else {
+        newData.color = "#d3d3d3";
+        newData.label = "";
+        return newData;
+      }
+    }
+
+    function customEdgeReducer(edge, data, source, target) {
+      if (!frozenSubgraph) return data;
+      const sourceIn = frozenSubgraph.nodes.has(source);
+      const targetIn = frozenSubgraph.nodes.has(target);
+      const newData = { ...data };
+      if (sourceIn && targetIn) {
+        newData.size = data.size ? data.size * 1.5 : 1.5;
+        return newData;
+      } else {
+        newData.color = "#e0e0e0";
+        newData.size = data.size ? data.size * 0.5 : 0.5;
+        return newData;
+      }
+    }
+
     var render_gexf = (gexf) => {
       // Parse the GEXF file into a Graphology graph.
       let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
-      // Reverse graph (if needed for other interactions)
+      // (Optional) Reverse graph if needed for additional interactions.
       let rev_graph = graphologyLibrary.operators.reverse(graph);
 
-      graph.dropNode('core:init.default');
+      if (graph.hasNode('core:init.default')) graph.dropNode('core:init.default');
 
-
+      // Keep only nodes from the "mathlib" project.
       for (let [node, node_data] of graph.nodeEntries()) {
         let [proj, path_str] = node.split(':');
         node_data.proj = proj;
         node_data.path = path_str.split('.');
-        
         if (node_data.proj === 'mathlib') {
-          // Use the full path (without "mathlib") as the label.
           node_data.label = node_data.path.join('.');
         } else {
-          // Drop nodes not belonging to mathlib.
           graph.dropNode(node);
         }
       }
@@ -89,33 +124,28 @@
           ncommon = i + 1;
         }
         if (sdata.proj !== tdata.proj) {
-          attrs.weight = 1; // weakest connection between different projects
-        }
-        else if (ncommon === 0) {
+          attrs.weight = 1;
+        } else if (ncommon === 0) {
           attrs.weight = 2;
-        }
-        else if (ncommon === 1) {
+        } else if (ncommon === 1) {
           attrs.weight = 4;
-        }
-        else {
-          attrs.weight = 8; // strongest connection
+        } else {
+          attrs.weight = 8;
         }
       }
 
-      let sorted_nodes = Array.from(graph.nodes()).sort();
-      for (let [i, node] of sorted_nodes.entries()) {
+      let sortedNodes = Array.from(graph.nodes()).sort();
+      for (let [i, node] of sortedNodes.entries()) {
         let node_data = graph.getNodeAttributes(node);
-        const theta = i / sorted_nodes.length;
+        const theta = i / sortedNodes.length;
         node_data.x = 0.1 * Math.cos(theta * 2 * Math.PI);
         node_data.y = 0.1 * Math.sin(theta * 2 * Math.PI);
-        // Use decl_count if available; otherwise default to 0.
         node_data.size = 2 + Math.sqrt(node_data.decl_count || 0) / 5;
       }
 
       const controlPanel = document.getElementById('control-panel');
-      // Remove any existing buttons (for re-renders).
+      // Remove any existing buttons (if re-rendering)
       controlPanel.querySelectorAll('button.label-btn').forEach(btn => btn.remove());
-
 
       const labelsSet = new Set();
       graph.forEachNode((node, attrs) => {
@@ -124,42 +154,80 @@
         }
       });
 
-
       labelsSet.forEach(label => {
         const btn = document.createElement('button');
         btn.className = 'label-btn';
         btn.textContent = 'Remove "' + label + '" nodes';
         btn.addEventListener('click', () => {
-          // Find all nodes where the first element of the path equals the label.
           const nodesToRemove = [];
           graph.forEachNode((node, attrs) => {
             if (attrs.path && attrs.path[0] === label) {
               nodesToRemove.push(node);
             }
           });
-
           nodesToRemove.forEach(node => graph.dropNode(node));
-
           window.renderer.refresh();
         });
         controlPanel.appendChild(btn);
       });
-
-
+      // --- End Control Panel ---
 
       window.graph = graph;
+
+      // Instantiate Sigma with our custom reducers.
       window.renderer = new Sigma.Sigma(graph, container, {
         defaultEdgeType: "arrow",
         defaultEdgeColor: "#c0c0c0",
         minArrowSize: 30,
         zIndex: true,
         renderLabels: true,
-        labelRenderedSizeThreshold: 5 // smaller value shows more labels
+        // Start with the original label threshold.
+        labelRenderedSizeThreshold: ORIGINAL_LABEL_THRESHOLD,
+        nodeReducer: customNodeReducer,
+        edgeReducer: customEdgeReducer
       });
+
+      window.renderer.on("clickNode", ({ node, event }) => {
+        // If Shift is held, freeze/unfreeze the subgraph.
+        if (event.shiftKey) {
+          if (frozenSubgraph && frozenSubgraph.center === node) {
+            // Unfreeze if already frozen on this node.
+            frozenSubgraph = null;
+            // Restore the original label threshold.
+            window.renderer.setSetting("labelRenderedSizeThreshold", ORIGINAL_LABEL_THRESHOLD);
+          } else {
+            const subNodes = new Set();
+            subNodes.add(node);
+            window.graph.forEachNeighbor(node, neighbor => subNodes.add(neighbor));
+            frozenSubgraph = {
+              center: node,
+              nodes: subNodes
+            };
+            if (frozenSubgraph.nodes.size / window.graph.order <= 0.2) {
+              window.renderer.setSetting("labelRenderedSizeThreshold", 0);
+            } else {
+              window.renderer.setSetting("labelRenderedSizeThreshold", ORIGINAL_LABEL_THRESHOLD);
+            }
+          }
+          window.renderer.refresh();
+        } else {
+          // Regular click (without shift) opens the documentation URL.
+          let attrs = window.graph.getNodeAttributes(node);
+          window.open(docs_url + attrs.path.join('/') + ".html");
+        }
+      });
+
+      window.renderer.on("clickStage", ({ event }) => {
+        if (frozenSubgraph) {
+          frozenSubgraph = null;
+          window.renderer.setSetting("labelRenderedSizeThreshold", ORIGINAL_LABEL_THRESHOLD);
+          window.renderer.refresh();
+        }
+      });
+      // --- End Freezing Handlers ---
     };
 
-
-    const docs_url = "https://leanprover-community.github.io/mathlib_docs/";
+    // Load the GEXF file and render the graph.
     fetch(docs_url + "import.gexf")
       .then((res) => res.text())
       .then(render_gexf);
