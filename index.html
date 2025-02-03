@@ -7,44 +7,11 @@
   <script src="vendor/graphology.min.js"></script>
   <script src="vendor/graphology-library.min.js"></script>
   <style>
-    html, body {
-      height: 100%;
-      width: 100%;
-      margin: 0;
-      padding: 0;
-      position: relative;
-    }
-    .sigma {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      top: 0;
-      left: 0;
-      overflow: hidden;
-    }
-    #control-panel {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(255, 255, 255, 0.9);
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      max-height: 90%;
-      overflow-y: auto;
-      z-index: 1000;
-    }
-    #control-panel h3 {
-      margin: 0 0 10px;
-      font-size: 16px;
-    }
-    #control-panel button {
-      display: block;
-      width: 100%;
-      margin-bottom: 5px;
-      padding: 4px;
-      cursor: pointer;
-    }
+    html, body {height: 100%; width: 100%; margin: 0; padding: 0; position: relative;}
+    .sigma {position: absolute; width: 100%; height: 100%; top: 0; left: 0; overflow: hidden;}
+    #control-panel {position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.9); padding: 10px; border: 1px solid #ccc; border-radius: 5px; max-height: 90%; overflow-y: auto; z-index: 1000;}
+    #control-panel h3 {margin: 0 0 10px; font-size: 16px;}
+    #control-panel button {display: block; width: 100%; margin-bottom: 5px; padding: 4px; cursor: pointer;}
   </style>
 </head>
 <body>
@@ -52,60 +19,47 @@
   <div id="control-panel">
     <h3>Remove Nodes by Label</h3>
   </div>
-
   <script>
     let frozenSubgraph = null;
     const ORIGINAL_LABEL_THRESHOLD = 5;
-
     const container = document.getElementById('sigma-example');
     const docs_url = "https://leanprover-community.github.io/mathlib_docs/";
-
     function customNodeReducer(node, data) {
-      // If no freezing is active, return the node unchanged.
       if (!frozenSubgraph) return data;
       const inSubgraph = frozenSubgraph.nodes.has(node);
-      const newData = { ...data };
+      let newData = { ...data };
       if (inSubgraph) {
         if (node === frozenSubgraph.center) {
           newData.size = data.size * 1.5;
           newData.color = "#000000";
         }
         if (frozenSubgraph.nodes.size / window.graph.order <= 0.2) {
-          // Force the label to be non-empty so that it gets drawn.
           newData.label = data.label;
         }
         return newData;
-      } else {
-        newData.color = "#d3d3d3";
-        newData.label = "";
-        return newData;
       }
+      newData.color = "#d3d3d3";
+      newData.label = "";
+      return newData;
     }
-
     function customEdgeReducer(edge, data, source, target) {
       if (!frozenSubgraph) return data;
       const sourceIn = frozenSubgraph.nodes.has(source);
       const targetIn = frozenSubgraph.nodes.has(target);
-      const newData = { ...data };
+      let newData = { ...data };
       if (sourceIn && targetIn) {
-        newData.size = data.size ? data.size * 1.5 : 1.5;
-        return newData;
-      } else {
-        newData.color = "#e0e0e0";
-        newData.size = data.size ? data.size * 0.5 : 0.5;
+        newData.size = (data.size || 1) * 2;
+        newData.color = "#000000";
         return newData;
       }
+      newData.color = "#e0e0e0";
+      newData.size = (data.size || 1) * 0.5;
+      return newData;
     }
-
     var render_gexf = (gexf) => {
-      // Parse the GEXF file into a Graphology graph.
       let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
-      // (Optional) Reverse graph if needed for additional interactions.
       let rev_graph = graphologyLibrary.operators.reverse(graph);
-
       if (graph.hasNode('core:init.default')) graph.dropNode('core:init.default');
-
-      // Keep only nodes from the "mathlib" project.
       for (let [node, node_data] of graph.nodeEntries()) {
         let [proj, path_str] = node.split(':');
         node_data.proj = proj;
@@ -116,7 +70,6 @@
           graph.dropNode(node);
         }
       }
-
       for (let [key, attrs, s, t, sdata, tdata] of graph.edgeEntries()) {
         let ncommon = 0;
         for (let i = 0; i < Math.min(sdata.path.length, tdata.path.length); i++) {
@@ -133,7 +86,6 @@
           attrs.weight = 8;
         }
       }
-
       let sortedNodes = Array.from(graph.nodes()).sort();
       for (let [i, node] of sortedNodes.entries()) {
         let node_data = graph.getNodeAttributes(node);
@@ -142,18 +94,14 @@
         node_data.y = 0.1 * Math.sin(theta * 2 * Math.PI);
         node_data.size = 2 + Math.sqrt(node_data.decl_count || 0) / 5;
       }
-
       const controlPanel = document.getElementById('control-panel');
-      // Remove any existing buttons (if re-rendering)
       controlPanel.querySelectorAll('button.label-btn').forEach(btn => btn.remove());
-
       const labelsSet = new Set();
       graph.forEachNode((node, attrs) => {
         if (attrs.path && attrs.path.length > 0) {
           labelsSet.add(attrs.path[0]);
         }
       });
-
       labelsSet.forEach(label => {
         const btn = document.createElement('button');
         btn.className = 'label-btn';
@@ -170,39 +118,27 @@
         });
         controlPanel.appendChild(btn);
       });
-      // --- End Control Panel ---
-
       window.graph = graph;
-
-      // Instantiate Sigma with our custom reducers.
       window.renderer = new Sigma.Sigma(graph, container, {
         defaultEdgeType: "arrow",
         defaultEdgeColor: "#c0c0c0",
         minArrowSize: 30,
         zIndex: true,
         renderLabels: true,
-        // Start with the original label threshold.
         labelRenderedSizeThreshold: ORIGINAL_LABEL_THRESHOLD,
         nodeReducer: customNodeReducer,
         edgeReducer: customEdgeReducer
       });
-
       window.renderer.on("clickNode", ({ node, event }) => {
-        // If Shift is held, freeze/unfreeze the subgraph.
         if (event.shiftKey) {
           if (frozenSubgraph && frozenSubgraph.center === node) {
-            // Unfreeze if already frozen on this node.
             frozenSubgraph = null;
-            // Restore the original label threshold.
             window.renderer.setSetting("labelRenderedSizeThreshold", ORIGINAL_LABEL_THRESHOLD);
           } else {
             const subNodes = new Set();
             subNodes.add(node);
             window.graph.forEachNeighbor(node, neighbor => subNodes.add(neighbor));
-            frozenSubgraph = {
-              center: node,
-              nodes: subNodes
-            };
+            frozenSubgraph = { center: node, nodes: subNodes };
             if (frozenSubgraph.nodes.size / window.graph.order <= 0.2) {
               window.renderer.setSetting("labelRenderedSizeThreshold", 0);
             } else {
@@ -211,23 +147,18 @@
           }
           window.renderer.refresh();
         } else {
-          // Regular click (without shift) opens the documentation URL.
           let attrs = window.graph.getNodeAttributes(node);
           window.open(docs_url + attrs.path.join('/') + ".html");
         }
       });
-
-      window.renderer.on("clickStage", ({ event }) => {
+      window.renderer.on("clickStage", () => {
         if (frozenSubgraph) {
           frozenSubgraph = null;
           window.renderer.setSetting("labelRenderedSizeThreshold", ORIGINAL_LABEL_THRESHOLD);
           window.renderer.refresh();
         }
       });
-      // --- End Freezing Handlers ---
     };
-
-    // Load the GEXF file and render the graph.
     fetch(docs_url + "import.gexf")
       .then((res) => res.text())
       .then(render_gexf);
