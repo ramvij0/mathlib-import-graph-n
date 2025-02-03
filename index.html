@@ -48,12 +48,12 @@
       const targetIn = frozenSubgraph.nodes.has(target);
       let newData = { ...data };
       if (sourceIn && targetIn) {
-        newData.size = (data.size || 1) * 2;
-        newData.color = "#000000";
+        newData.color = "#FF0000";
+        newData.size = 3;
         return newData;
       }
       newData.color = "#e0e0e0";
-      newData.size = (data.size || 1) * 0.5;
+      newData.size = 1;
       return newData;
     }
     var render_gexf = (gexf) => {
