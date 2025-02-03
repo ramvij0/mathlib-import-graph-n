@@ -16,9 +16,7 @@
 </head>
 <body>
   <div class="sigma" id="sigma-example"></div>
-  <div id="control-panel">
-    <h3>Remove Nodes by Label</h3>
-  </div>
+  <div id="control-panel"><h3>Remove Nodes by Label</h3></div>
   <script>
     let frozenSubgraph = null;
     const ORIGINAL_LABEL_THRESHOLD = 5;
@@ -49,7 +47,7 @@
       let newData = { ...data };
       if (sourceIn && targetIn) {
         newData.color = "#FF0000";
-        newData.size = 3;
+        newData.size = 5;
         return newData;
       }
       newData.color = "#e0e0e0";
@@ -121,7 +119,6 @@
       window.graph = graph;
       window.renderer = new Sigma.Sigma(graph, container, {
         defaultEdgeType: "arrow",
-        defaultEdgeColor: "#c0c0c0",
         minArrowSize: 30,
         zIndex: true,
         renderLabels: true,
