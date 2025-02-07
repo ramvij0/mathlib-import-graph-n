@@ -31,7 +31,8 @@
           out.size = data.size * 1.5;
           out.color = "#000000";
         }
-        if (frozenSubgraph.nodes.size / window.graph.order <= 0.2) out.label = data.label;
+        if (frozenSubgraph.nodes.size / window.graph.order <= 0.2)
+          out.label = data.label;
         return out;
       }
       out.color = "#d3d3d3";
@@ -46,21 +47,28 @@
       if (sIn && tIn) {
         out.color = "#FF0000";
         out.size = 10;
+        out.arrowColor = "#FF0000";
+        out.arrowSize = 10;
         return out;
       }
       out.color = "#e0e0e0";
-      out.size = 2;
+      out.size = 1;
+      out.arrowColor = "#e0e0e0";
+      out.arrowSize = 1;
       return out;
     }
     var render_gexf = (gexf) => {
       let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
-      if (graph.hasNode('core:init.default')) graph.dropNode('core:init.default');
+      if (graph.hasNode('core:init.default'))
+        graph.dropNode('core:init.default');
       for (let [node, nd] of graph.nodeEntries()) {
         let [proj, pathStr] = node.split(':');
         nd.proj = proj;
         nd.path = pathStr.split('.');
-        if (nd.proj === 'mathlib') nd.label = nd.path.join('.');
-        else graph.dropNode(node);
+        if (nd.proj === 'mathlib')
+          nd.label = nd.path.join('.');
+        else
+          graph.dropNode(node);
       }
       for (let [key, attrs, s, t, sd, td] of graph.edgeEntries()) {
         let ncommon = 0;
@@ -68,10 +76,14 @@
           if (sd.path[i] !== td.path[i]) break;
           ncommon = i + 1;
         }
-        if (sd.proj !== td.proj) attrs.weight = 1;
-        else if (ncommon === 0) attrs.weight = 2;
-        else if (ncommon === 1) attrs.weight = 4;
-        else attrs.weight = 8;
+        if (sd.proj !== td.proj)
+          attrs.weight = 1;
+        else if (ncommon === 0)
+          attrs.weight = 2;
+        else if (ncommon === 1)
+          attrs.weight = 4;
+        else
+          attrs.weight = 8;
       }
       let sorted = Array.from(graph.nodes()).sort();
       for (let [i, node] of sorted.entries()) {
@@ -84,14 +96,18 @@
       const cp = document.getElementById('control-panel');
       cp.querySelectorAll('button.label-btn').forEach(b => b.remove());
       const labels = new Set();
-      graph.forEachNode((node, nd) => { if (nd.path && nd.path.length) labels.add(nd.path[0]); });
+      graph.forEachNode((node, nd) => {
+        if (nd.path && nd.path.length) labels.add(nd.path[0]);
+      });
       labels.forEach(l => {
         const btn = document.createElement('button');
         btn.className = 'label-btn';
         btn.textContent = 'Remove "' + l + '" nodes';
         btn.addEventListener('click', () => {
           const toRemove = [];
-          graph.forEachNode((node, nd) => { if (nd.path && nd.path[0] === l) toRemove.push(node); });
+          graph.forEachNode((node, nd) => {
+            if (nd.path && nd.path[0] === l) toRemove.push(node);
+          });
           toRemove.forEach(n => graph.dropNode(n));
           window.renderer.refresh();
         });
@@ -121,8 +137,10 @@
               window.graph.forEachOutNeighbor(node, n => subs.add(n));
             }
             frozenSubgraph = { center: node, nodes: subs };
-            if (frozenSubgraph.nodes.size / window.graph.order <= 0.2) window.renderer.setSetting("labelRenderedSizeThreshold", 0);
-            else window.renderer.setSetting("labelRenderedSizeThreshold", ORIGINAL_LABEL_THRESHOLD);
+            if (frozenSubgraph.nodes.size / window.graph.order <= 0.2)
+              window.renderer.setSetting("labelRenderedSizeThreshold", 0);
+            else
+              window.renderer.setSetting("labelRenderedSizeThreshold", ORIGINAL_LABEL_THRESHOLD);
           }
           window.renderer.refresh();
         } else {
