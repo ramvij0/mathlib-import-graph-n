@@ -22,6 +22,7 @@
     const ORIGINAL_LABEL_THRESHOLD = 5;
     const container = document.getElementById('sigma-example');
     const docs_url = "https://leanprover-community.github.io/mathlib_docs/";
+    
     function customNodeReducer(node, data) {
       if (!frozenSubgraph) return data;
       const inSub = frozenSubgraph.nodes.has(node);
@@ -39,24 +40,40 @@
       out.label = "";
       return out;
     }
-    function customEdgeReducer(edge, data, source, target) {
-      if (!frozenSubgraph) return data;
-      const sIn = frozenSubgraph.nodes.has(source);
-      const tIn = frozenSubgraph.nodes.has(target);
-      let out = { ...data };
-      if (sIn && tIn) {
-        out.color = "#FF0000";
-        out.size = 10;
-        out.arrowColor = "#FF0000";
-        out.arrowSize = 10;
+    
+    <script>
+      // ... [previous code remains unchanged]
+    
+      function customEdgeReducer(edge, data, source, target) {
+        if (!frozenSubgraph) return data;
+        const sIn = frozenSubgraph.nodes.has(source);
+        const tIn = frozenSubgraph.nodes.has(target);
+        let out = { ...data };
+        if (sIn && tIn) {
+          out.color = "#FF0000";
+          out.size = 10;
+          return out;
+        }
+        out.color = "#e0e0e0";
+        out.size = 1;
         return out;
       }
-      out.color = "#e0e0e0";
-      out.size = 1;
-      out.arrowColor = "#e0e0e0";
-      out.arrowSize = 1;
-      return out;
-    }
+    
+      // ... [rest of the code remains unchanged]
+    
+      window.renderer = new Sigma.Sigma(graph, container, {
+        defaultEdgeType: "arrow",
+        minArrowSize: 10,  // Changed from 30 to 10
+        zIndex: true,
+        renderLabels: true,
+        labelRenderedSizeThreshold: ORIGINAL_LABEL_THRESHOLD,
+        nodeReducer: customNodeReducer,
+        edgeReducer: customEdgeReducer
+      });
+    
+      // ... [remaining code unchanged]
+    </script>
+    
     var render_gexf = (gexf) => {
       let graph = graphologyLibrary.gexf.parse(graphology.Graph, gexf);
       if (graph.hasNode('core:init.default'))
@@ -114,15 +131,17 @@
         cp.appendChild(btn);
       });
       window.graph = graph;
+    
       window.renderer = new Sigma.Sigma(graph, container, {
         defaultEdgeType: "arrow",
-        minArrowSize: 30,
+        minArrowSize: 10,
         zIndex: true,
         renderLabels: true,
         labelRenderedSizeThreshold: ORIGINAL_LABEL_THRESHOLD,
         nodeReducer: customNodeReducer,
         edgeReducer: customEdgeReducer
       });
+    
       window.renderer.on("clickNode", ({ node, event }) => {
         if (event.shiftKey) {
           if (frozenSubgraph && frozenSubgraph.center === node) {
@@ -156,6 +175,7 @@
         }
       });
     };
+    
     fetch(docs_url + "import.gexf").then(r => r.text()).then(render_gexf);
   </script>
 </body>
